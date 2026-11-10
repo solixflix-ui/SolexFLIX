@@ -1,0 +1,1243 @@
+
+/* ==================================
+   SOLEXFLIX PREMIUM CINEMA DESIGN
+================================== */
+
+:root {
+  --bg: #080808;
+  --surface: #151515;
+  --surface2: #202020;
+  --red: #e50914;
+  --white: #ffffff;
+  --muted: #aaaaaa;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--bg);
+}
+
+body {
+  background: var(--bg) !important;
+  color: var(--white);
+  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* NAVBAR */
+
+.navbar {
+  width: 100%;
+  min-height: 75px;
+  padding: 15px 5%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: rgba(8,8,8,.97);
+  border-bottom: 1px solid #242424;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-size: 29px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  white-space: nowrap;
+}
+
+.logo span {
+  color: var(--red);
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 23px;
+}
+
+.nav-links a {
+  color: #ddd;
+  font-size: 14px;
+}
+
+.nav-links a:hover {
+  color: var(--red);
+}
+
+.nav-links button,
+.admin-btn {
+  background: transparent;
+  border: 1px solid #444;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 5px;
+}
+
+.nav-links button:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* HERO */
+
+.hero {
+  min-height: 490px;
+  padding: 80px 7%;
+  display: flex;
+  align-items: center;
+  background:
+    linear-gradient(90deg, #080808 0%, rgba(8,8,8,.86) 48%, rgba(8,8,8,.25)),
+    linear-gradient(0deg, #080808, transparent 45%),
+    #202020;
+  background-size: cover;
+  background-position: center;
+}
+
+.hero-content {
+  max-width: 650px;
+}
+
+.tag {
+  display: inline-block;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  margin-bottom: 20px;
+}
+
+.hero h1 {
+  font-size: clamp(38px, 7vw, 68px);
+  line-height: 1.08;
+  font-weight: 900;
+  margin-bottom: 20px;
+}
+
+.hero p {
+  color: #ccc;
+  font-size: 17px;
+  line-height: 1.6;
+  margin-bottom: 25px;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* BUTTONS */
+
+.primary-btn,
+.secondary-btn {
+  display: inline-block;
+  border: 0;
+  border-radius: 5px;
+  padding: 13px 22px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.primary-btn {
+  background: var(--red);
+  color: white;
+}
+
+.primary-btn:hover {
+  background: #b80710;
+}
+
+.secondary-btn {
+  background: #333;
+  color: white;
+}
+
+.secondary-btn:hover {
+  background: #484848;
+}
+
+/* SEARCH */
+
+.search-area {
+  padding: 25px 5%;
+}
+
+.search-area input {
+  width: 100%;
+  max-width: 600px;
+}
+
+/* INPUTS */
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 14px;
+  background: #202020;
+  border: 1px solid #383838;
+  border-radius: 6px;
+  color: white;
+  outline: none;
+  margin: 8px 0;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--red);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #999;
+}
+
+/* MOVIE SECTIONS */
+
+.movie-section {
+  padding: 35px 5%;
+}
+
+.section-title {
+  font-size: 25px;
+  margin-bottom: 22px;
+  padding-left: 13px;
+  border-left: 4px solid var(--red);
+}
+
+.movie-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 22px;
+}
+
+.movie-card {
+  min-width: 0;
+  background: var(--surface);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .25s, box-shadow .25s;
+}
+
+.movie-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 25px rgba(229,9,20,.2);
+}
+
+.movie-card img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  display: block;
+  background: #222;
+}
+
+.movie-card h3 {
+  font-size: 15px;
+  padding: 12px 10px 5px;
+  overflow-wrap: anywhere;
+}
+
+.movie-card p {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 10px 13px;
+}
+
+/* CATEGORIES */
+
+.category-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.category-btn {
+  background: #1d1d1d;
+  color: white;
+  border: 1px solid #383838;
+  padding: 10px 19px;
+  border-radius: 25px;
+}
+
+.category-btn.active,
+.category-btn:hover {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+/* DETAILS */
+
+.details-page {
+  padding: 35px 5%;
+}
+
+.details-container {
+  display: grid;
+  grid-template-columns: minmax(180px, 300px) 1fr;
+  gap: 35px;
+  margin-top: 25px;
+  align-items: start;
+}
+
+.details-container > img {
+  width: 100%;
+  border-radius: 10px;
+  background: #222;
+}
+
+.details-info h1 {
+  font-size: 35px;
+  margin-bottom: 15px;
+}
+
+.details-info p {
+  color: #ccc;
+  line-height: 1.7;
+  margin: 12px 0;
+}
+
+#trailer-container {
+  margin: 25px 0;
+}
+
+#trailer-container iframe {
+  border: 0;
+  border-radius: 8px;
+}
+
+/* ADMIN LOGIN AND DASHBOARD */
+
+#login-section,
+#admin-panel {
+  padding: 45px 5%;
+  min-height: 65vh;
+}
+
+.admin-box {
+  width: 100%;
+  max-width: 650px;
+  margin: 25px auto;
+  padding: 28px;
+  background: #151515;
+  border: 1px solid #333;
+  border-radius: 12px;
+}
+
+.admin-box h2,
+.admin-box h3 {
+  margin-bottom: 18px;
+}
+
+.admin-box > p {
+  color: var(--muted);
+  margin-bottom: 15px;
+}
+
+.admin-box form button {
+  margin-top: 12px;
+}
+
+.back-btn {
+  background: transparent;
+  border: 1px solid #444;
+  color: white;
+  padding: 9px 14px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  padding: 10px 5%;
+}
+
+.upload-label {
+  display: block;
+  padding: 16px;
+  margin-top: 12px;
+  border: 1px dashed var(--red);
+  border-radius: 7px;
+  text-align: center;
+  cursor: pointer;
+  color: white;
+  background: #202020;
+}
+
+.poster-preview {
+  width: 150px;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 7px;
+  margin: 15px 0;
+}
+
+.admin-movie-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 0;
+  border-bottom: 1px solid #333;
+}
+
+.admin-movie-item img {
+  width: 65px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.admin-movie-item button {
+  padding: 8px 12px;
+  margin: 8px 5px 0 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--red);
+  color: white;
+}
+
+/* FOOTER */
+
+.footer {
+  text-align: center;
+  padding: 40px 20px;
+  margin-top: 40px;
+  border-top: 1px solid #292929;
+  background: #050505;
+}
+
+.footer p {
+  color: #888;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+#empty-message,
+#login-message,
+#movie-message {
+  color: #ff5555;
+  margin-top: 15px;
+}
+
+/* MOBILE */
+
+@media (max-width: 650px) {
+  .navbar {
+    padding: 13px 4%;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    font-size: 25px;
+  }
+
+  .nav-links {
+    width: 100%;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .nav-links a,
+  .nav-links button {
+    font-size: 12px;
+  }
+
+  .hero {
+    min-height: 390px;
+    padding: 55px 6%;
+  }
+
+  .movie-section {
+    padding: 25px 4%;
+  }
+
+  .movie-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+  }
+
+  .section-title {
+    font-size: 21px;
+  }
+
+  .details-container {
+    grid-template-columns: 1fr;
+  }
+
+  .details-container > img {
+    max-width: 230px;
+  }
+
+  .admin-box {
+    padding: 19px;
+  }
+}
+
+/* =====================================
+   PREMIUM MOVIE DETAILS PAGE
+===================================== */
+
+#details-section {
+  min-height: 100vh;
+  padding: 35px 20px 60px;
+  background:
+    radial-gradient(ellipse at 75% 20%, #421010 0%, transparent 45%),
+    linear-gradient(135deg, #171717, #080808 65%);
+  color: #fff;
+}
+
+.details-page {
+  max-width: 1200px;
+  margin: auto;
+}
+
+#close-details {
+  margin-bottom: 35px;
+  padding: 11px 22px;
+  border: 1px solid #555;
+  border-radius: 7px;
+  background: #191919;
+  color: white;
+  cursor: pointer;
+}
+
+.details-container {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 45px;
+  align-items: start;
+}
+
+#details-poster {
+  width: 100%;
+  max-height: 480px;
+  object-fit: cover;
+  border-radius: 14px;
+  box-shadow: 0 15px 45px #000;
+  border: 1px solid #333;
+}
+
+.details-info h1 {
+  font-size: clamp(30px, 5vw, 48px);
+  margin: 5px 0 20px;
+  line-height: 1.15;
+}
+
+.details-info p {
+  color: #c5c5c5;
+  line-height: 1.8;
+  margin: 10px 0;
+}
+
+#details-year,
+#details-category,
+#details-rating {
+  display: inline-block;
+  margin-right: 15px;
+  color: #ff4545;
+  font-weight: 600;
+}
+
+#details-description {
+  margin-top: 25px;
+  font-size: 16px;
+  max-width: 750px;
+}
+
+#movie-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 25px;
+  padding: 14px 30px;
+  background: #e50914;
+  color: #fff;
+  text-decoration: none;
+  font-weight: bold;
+  border-radius: 7px;
+  transition: 0.3s;
+}
+
+#movie-download:hover {
+  background: #ff2631;
+  transform: translateY(-3px);
+}
+
+#trailer-container {
+  margin-top: 40px;
+}
+
+#trailer-container h2 {
+  margin-bottom: 18px;
+}
+
+#movie-trailer {
+  display: block;
+  width: 100%;
+  max-width: 850px;
+  height: 450px;
+  border: 0;
+  border-radius: 12px;
+  background: #000;
+}
+
+/* MOBILE RESPONSIVE */
+
+@media (max-width: 700px) {
+  #details-section {
+    padding: 20px 15px 45px;
+  }
+
+  .details-container {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+
+  #details-poster {
+    max-width: 260px;
+    max-height: 380px;
+    margin: auto;
+    display: block;
+  }
+
+  .details-info h1 {
+    font-size: 30px;
+  }
+
+  #movie-trailer {
+    height: 230px;
+  }
+
+  #movie-download {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+/* =====================================
+   CINEMATIC PREMIUM EFFECTS
+===================================== */
+
+/* Movie poster animation */
+#details-poster {
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+#details-poster:hover {
+  transform: scale(1.025);
+  box-shadow: 0 20px 55px rgba(229, 9, 20, 0.3);
+}
+
+/* Movie title glow */
+.details-info h1 {
+  color: #fff;
+  text-shadow: 0 0 22px rgba(229, 9, 20, 0.25);
+  letter-spacing: -1px;
+}
+
+/* Details information panel */
+.details-info {
+  padding: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 15px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.015)
+  );
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.3);
+}
+
+/* Watch button glow */
+#movie-download {
+  box-shadow: 0 5px 22px rgba(229, 9, 20, 0.25);
+}
+
+#movie-download:hover {
+  box-shadow: 0 8px 30px rgba(229, 9, 20, 0.5);
+}
+
+/* Trailer section */
+#trailer-container h2 {
+  color: #fff;
+  border-left: 4px solid #e50914;
+  padding-left: 12px;
+}
+
+/* Trailer border */
+#movie-trailer {
+  border: 1px solid #333;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
+}
+
+/* =====================================
+   SOLEXFLIX PREMIUM MOVIE CARDS
+===================================== */
+
+.movie-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #151515;
+  border: 1px solid #292929;
+  cursor: pointer;
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.movie-card:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 12px 35px rgba(229, 9, 20, 0.3);
+  border-color: #e50914;
+}
+
+.movie-poster {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 2 / 3;
+  background: #222;
+}
+
+.movie-poster img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.movie-card:hover .movie-poster img {
+  transform: scale(1.08);
+}
+
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  background: linear-gradient(
+    transparent,
+    rgba(0, 0, 0, 0.85)
+  );
+  transition: opacity 0.3s ease;
+}
+
+.movie-card:hover .card-overlay {
+  opacity: 1;
+}
+
+.card-watch {
+  padding: 10px 15px;
+  background: #e50914;
+  color: white;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.movie-rating {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #ffd700;
+  padding: 5px 9px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.movie-info {
+  padding: 12px;
+}
+
+.movie-info h3 {
+  color: white;
+  font-size: 15px;
+  margin: 0 0 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.movie-info p {
+  color: #aaa;
+  font-size: 12px;
+  margin: 0;
+}
+
+@media (hover: none) {
+  .card-overlay {
+    opacity: 1;
+    justify-content: flex-end;
+    align-items: flex-end;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+}
+
+/* =====================================
+   RESPONSIVE MOVIE GRID
+===================================== */
+
+.movie-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .movie-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .movie-info {
+    padding: 9px;
+  }
+
+  .movie-info h3 {
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1000px) {
+  .movie-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* =====================================
+   SOLEXFLIX PREMIUM NAVBAR
+===================================== */
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 16px 5%;
+  background: rgba(8, 8, 8, 0.96);
+  border-bottom: 1px solid rgba(229, 9, 20, 0.25);
+  backdrop-filter: blur(14px);
+}
+
+.logo {
+  color: #fff;
+  font-size: 25px;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.logo span {
+  color: #e50914;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.nav-links a,
+.nav-links button {
+  color: #ddd;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.nav-links a:hover,
+.nav-links button:hover {
+  color: #e50914;
+}
+
+.nav-links .admin-btn {
+  background: #e50914;
+  color: white;
+  padding: 10px 17px;
+  border-radius: 6px;
+}
+
+.nav-links .admin-btn:hover {
+  background: #ff2631;
+  color: white;
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    padding: 13px 12px;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    font-size: 22px;
+  }
+
+  .nav-links {
+    width: 100%;
+    gap: 17px;
+    overflow-x: auto;
+    padding: 5px 0;
+    white-space: nowrap;
+  }
+
+  .nav-links a,
+  .nav-links button {
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+}
+
+/* =====================================
+   SOLEXFLIX PREMIUM SEARCH
+===================================== */
+
+.search-area {
+  max-width: 850px;
+  margin: 30px auto;
+  padding: 0 20px;
+  animation: searchAppear 0.3s ease;
+}
+
+#search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 17px 22px;
+  background: #171717;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 10px;
+  outline: none;
+  font-size: 16px;
+  transition: 0.3s ease;
+}
+
+#search-input:focus {
+  border-color: #e50914;
+  box-shadow: 0 0 20px rgba(229, 9, 20, 0.25);
+}
+
+#search-input::placeholder {
+  color: #888;
+}
+
+#search-toggle {
+  padding: 10px 18px !important;
+  border: 1px solid #e50914 !important;
+  border-radius: 6px;
+}
+
+#search-toggle:hover {
+  background: #e50914 !important;
+  color: #fff !important;
+}
+
+@keyframes searchAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .search-area {
+    margin: 20px auto;
+    padding: 0 12px;
+  }
+
+  #search-input {
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+}
+/* PREMIUM NO RESULTS DESIGN */
+
+.no-results {
+  grid-column: 1 / -1;
+  width: 100%;
+  text-align: center;
+  padding: 55px 20px;
+  background: linear-gradient(145deg, #151515, #080808);
+  border: 1px solid rgba(255, 40, 40, 0.2);
+  border-radius: 18px;
+  margin: 20px 0;
+}
+
+.no-results-icon {
+  font-size: 55px;
+  margin-bottom: 15px;
+  filter: drop-shadow(0 0 12px #ff2525);
+}
+
+.no-results h3 {
+  color: #ffffff;
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.no-results p {
+  color: #bbbbbb;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.no-results span {
+  color: #ff3434;
+  font-size: 12px;
+}
+/* SOLEXFLIX PREMIUM VIDEO PLAYER */
+
+#movie-player-container {
+  width: 100%;
+  margin-top: 30px;
+  padding: 18px;
+  background: #101010;
+  border: 1px solid rgba(255, 35, 35, 0.35);
+  border-radius: 18px;
+  box-shadow: 0 0 25px rgba(255, 0, 0, 0.12);
+}
+
+#movie-player-container h2 {
+  color: #fff;
+  margin-bottom: 15px;
+}
+
+#solex-player {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 12px;
+  background: #000;
+}
+
+@media (max-width: 600px) {
+  #movie-player-container {
+    padding: 10px;
+  }
+}
+/* SCREENSHOTS + QUALITY DOWNLOADS */
+.download-area {
+  margin-top: 26px;
+}
+.download-area h2,
+.screenshots-section h2 {
+  margin: 0 0 14px;
+  color: #fff;
+}
+.download-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.download-quality-btn {
+  min-width: 125px;
+  display: inline-block;
+}
+.screenshots-section {
+  margin: 35px 0 20px;
+}
+.screenshots-section > p,
+.admin-help {
+  color: #aaa;
+  font-size: 13px;
+  margin: 0 0 15px;
+  line-height: 1.5;
+}
+.screenshots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+}
+.screenshot-thumb {
+  display: block;
+  border: 1px solid #333;
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  background: #111;
+  cursor: zoom-in;
+  aspect-ratio: 16 / 9;
+}
+.screenshot-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform .25s ease;
+}
+.screenshot-thumb:hover img { transform: scale(1.05); }
+.screenshot-viewer[hidden] { display: none !important; }
+.screenshot-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,.96);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 55px 18px 25px;
+}
+.screenshot-viewer > img {
+  max-width: min(86vw, 1400px);
+  max-height: 86vh;
+  object-fit: contain;
+  border-radius: 5px;
+}
+#close-screenshot-viewer {
+  position: absolute;
+  top: 12px;
+  right: 20px;
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: 42px;
+  line-height: 1;
+}
+.viewer-nav {
+  border: 1px solid #555;
+  background: rgba(30,30,30,.8);
+  color: white;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  font-size: 30px;
+  flex: 0 0 auto;
+}
+body.viewer-open { overflow: hidden; }
+.admin-subheading {
+  color: #fff;
+  margin: 18px 0 4px;
+  font-size: 16px;
+}
+@media (max-width: 600px) {
+  .screenshots-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .screenshot-viewer { padding-inline: 8px; gap: 5px; }
+  .screenshot-viewer > img { max-width: calc(100vw - 90px); }
+  .viewer-nav { width: 36px; height: 36px; font-size: 24px; }
+  .download-quality-btn { flex: 1 1 100%; }
+}
+
+
+/* ADSTERRA BANNER PLACEMENTS */
+.ad-slot {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 22px auto;
+  padding: 10px 0;
+  overflow: hidden;
+}
+.ad-label {
+  color: #888;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.ad-slot-home { min-height: 270px; }
+.ad-slot-details { min-height: 70px; }
+
+
+/* MOVIE CATEGORY + PAGINATION */
+.category-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.category-btn {
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+}
+.category-btn:hover {
+  transform: translateY(-1px);
+}
+.movie-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 30px auto 10px;
+}
+.movie-pagination button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1px solid #393939;
+  border-radius: 7px;
+  background: #171717;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.movie-pagination button.active,
+.movie-pagination button:hover:not(:disabled) {
+  background: #e50914;
+  border-color: #e50914;
+}
+.movie-pagination button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+.pagination-dots {
+  color: #aaa;
+  padding: 0 4px;
+}
+@media (max-width: 480px) {
+  .category-list { gap: 7px; }
+  .category-btn { padding: 9px 13px; font-size: 12px; }
+  .movie-pagination { gap: 5px; }
+  .movie-pagination button { min-width: 35px; min-height: 36px; padding: 7px 9px; }
+}

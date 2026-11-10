@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tight-salad-0c51.solixflix-2a3.workers.dev/sitemap.xml

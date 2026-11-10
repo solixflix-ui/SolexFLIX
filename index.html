@@ -1,0 +1,357 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080808">
+  <meta name="description" content="Explore movies, documentaries, trailers, reviews and entertainment updates on SolexFLIX.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="googlebot" content="index, follow">
+  <meta name="author" content="SolexFLIX">
+  <link rel="canonical" href="https://tight-salad-0c51.solixflix-2a3.workers.dev/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SolexFLIX">
+  <meta property="og:title" content="SolexFLIX | Movies & Entertainment">
+  <meta property="og:description" content="Explore movies, documentaries, trailers, reviews and entertainment updates on SolexFLIX.">
+  <meta property="og:url" content="https://tight-salad-0c51.solixflix-2a3.workers.dev/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="SolexFLIX | Movies & Entertainment">
+  <meta name="twitter:description" content="Explore movies, documentaries, trailers, reviews and entertainment updates on SolexFLIX.">
+
+  <title>SolexFLIX | Movies, Documentaries & Entertainment</title>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "SolexFLIX",
+    "url": "https://tight-salad-0c51.solixflix-2a3.workers.dev/",
+    "description": "Explore movies, documentaries, trailers, reviews and entertainment updates on SolexFLIX."
+  }
+  </script>
+
+  <!-- CSS FILE -->
+  <link rel="stylesheet" href="./style.css">
+
+  <!-- BLACK BACKGROUND FALLBACK -->
+  <style>
+    html, body {
+      background: #080808;
+      color: #ffffff;
+      margin: 0;
+      min-height: 100%;
+    }
+    [hidden] {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <a href="#" class="logo">Solex<span>FLIX</span></a>
+
+    <nav class="nav-links">
+      <a href="#home">Home</a>
+      <a href="#trending">Trending</a>
+      <a href="#recent">Recent</a>
+      <button id="search-toggle" type="button">Search</button>
+      <button id="admin-open" type="button" class="admin-btn">Admin</button>
+    </nav>
+  </header>
+
+  <!-- WEBSITE -->
+  <main id="website-section">
+
+    <!-- HERO -->
+    <section class="hero" id="home">
+      <div class="hero-content">
+        <span class="tag">SOLEXFLIX ORIGINAL</span>
+        <h1 id="featured-title">Stories That Stay With You.</h1>
+        <p id="featured-description">
+          Discover amazing movies and documentaries.
+        </p>
+
+        <div class="hero-buttons">
+          <button id="featured-watch" class="primary-btn" type="button">
+            View Details
+          </button>
+          <button id="featured-details" class="secondary-btn" type="button">
+            More Info
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEARCH -->
+    <section class="search-area" id="search-box" hidden>
+      <input
+        type="search"
+        id="search-input"
+        placeholder="Search movies..."
+        autocomplete="off"
+      >
+    </section>
+
+    <!-- TRENDING -->
+    <section class="movie-section" id="trending">
+      <h2 class="section-title">Trending Now</h2>
+      <div id="trending-list" class="movie-grid"></div>
+      <!-- Adsterra 300x250 banner: Homepage -->
+      <div class="ad-slot ad-slot-home" aria-label="Advertisement">
+        <div class="ad-label">Advertisement</div>
+        <script>
+          atOptions = {
+            'key' : 'ed91b0bd9402bbe09d516dec0dbd0495',
+            'format' : 'iframe',
+            'height' : 250,
+            'width' : 300,
+            'params' : {}
+          };
+        </script>
+        <script src="https://bancadeltempoidea.org/22/ed91b0bd9402bbe09d516dec0dbd0495"></script>
+      </div>
+    </section>
+<!-- CONTINUE WATCHING -->
+
+<section class="movie-section" id="continue-watching-section" hidden>
+  <h2 class="section-title">Continue Watching</h2>
+  <div id="continue-watching-list" class="movie-grid"></div>
+</section>
+<!-- WATCH HISTORY -->
+
+<section class="movie-section" id="watch-history-section" hidden>
+  <h2 class="section-title">Watch History</h2>
+
+  <button id="clear-watch-history" class="secondary-btn" type="button">
+    Clear History
+  </button>
+
+  <div id="watch-history-list" class="movie-grid"></div>
+</section>
+    <!-- RECENT -->
+    <section class="movie-section" id="recent">
+      <h2 class="section-title">Recently Added</h2>
+      <div id="recent-list" class="movie-grid"></div>
+    </section>
+
+    <!-- CATEGORIES -->
+    <section class="movie-section">
+      <h2 class="section-title">Browse Categories</h2>
+
+      <div id="category-list" class="category-list">
+        <button class="category-btn active" data-category="All" type="button">All</button>
+        <button class="category-btn" data-category="Action" type="button">Action</button>
+        <button class="category-btn" data-category="Drama" type="button">Drama</button>
+        <button class="category-btn" data-category="Comedy" type="button">Comedy</button>
+        <button class="category-btn" data-category="Documentary" type="button">Documentary</button>
+        <button class="category-btn" data-category="Thriller" type="button">Thriller</button>
+        <button class="category-btn" data-category="Horror" type="button">Horror</button>
+      </div>
+    </section>
+
+    <!-- ALL MOVIES -->
+    <section class="movie-section">
+      <h2 class="section-title">Explore Movies</h2>
+      <div id="movie-grid" class="movie-grid"></div>
+      <div id="movie-pagination" class="movie-pagination" aria-label="Movie pages"></div>
+      <p id="empty-message" hidden>No movies available yet.</p>
+    </section>
+
+  </main>
+
+  <!-- MOVIE DETAILS -->
+  <section id="details-section" hidden>
+    <div class="details-page">
+      <button id="close-details" class="secondary-btn" type="button">
+        ← Back
+      </button>
+
+      <div class="details-container">
+        <img id="details-poster" src="" alt="Movie Poster">
+
+        <div class="details-info">
+          <h1 id="details-title"></h1>
+          <p id="details-year"></p>
+          <p id="details-category"></p>
+          <p id="details-rating"></p>
+          <p id="details-description"></p>
+
+          <div id="trailer-container" hidden>
+            <h2>Official Trailer</h2>
+            <iframe
+              id="movie-trailer"
+              title="Movie Trailer"
+              width="100%"
+              height="250"
+              src=""
+              allowfullscreen
+            ></iframe>
+          </div>
+
+          <div class="download-area" id="download-area" hidden>
+            <h2>Download</h2>
+            <div id="download-buttons" class="download-buttons"></div>
+          </div>
+          <!-- Adsterra 320x50 banner: Movie details -->
+          <div id="movie-details-ad" class="ad-slot ad-slot-details" aria-label="Advertisement">
+            <div class="ad-label">Advertisement</div>
+          </div>
+        </div>
+      </div>
+      <section id="screenshots-section" class="screenshots-section" hidden>
+        <h2>Screenshots</h2>
+        <p>Tap any screenshot to view it full screen.</p>
+        <div id="movie-screenshots" class="screenshots-grid"></div>
+      </section>
+    </div>
+  </section>
+
+  <!-- FULLSCREEN SCREENSHOT VIEWER -->
+  <div id="screenshot-viewer" class="screenshot-viewer" hidden role="dialog" aria-modal="true" aria-label="Screenshot viewer">
+    <button id="close-screenshot-viewer" type="button" aria-label="Close">×</button>
+    <button id="previous-screenshot" class="viewer-nav" type="button" aria-label="Previous screenshot">‹</button>
+    <img id="fullscreen-screenshot" src="" alt="Movie screenshot">
+    <button id="next-screenshot" class="viewer-nav" type="button" aria-label="Next screenshot">›</button>
+  </div>
+
+  <!-- ADMIN LOGIN -->
+  <section id="login-section" hidden>
+    <div class="admin-box">
+      <button id="close-admin-login" class="back-btn" type="button">← Back</button>
+
+      <h2>Admin Login</h2>
+      <p>Sign in to manage SolexFLIX</p>
+
+
+<form id="login-form">
+
+  <input
+    type="email"
+    id="login-email"
+    placeholder="Admin Email"
+    required
+  >
+
+  <input
+    type="password"
+    id="login-password"
+    placeholder="Password"
+    autocomplete="current-password"
+    required
+  >
+
+  <button class="primary-btn" type="submit">
+    Login
+  </button>
+
+  <p id="login-message"></p>
+
+</form>
+
+    </div>
+  </section>
+
+  <!-- ADMIN DASHBOARD -->
+  <section id="admin-panel" hidden>
+    <div class="admin-header">
+      <h1>Admin Dashboard</h1>
+      <button id="logout-btn" class="secondary-btn" type="button">Logout</button>
+    </div>
+
+    <!-- ADD / EDIT MOVIE -->
+    <div class="admin-box">
+      <h2 id="form-heading">Add New Movie</h2>
+
+      <form id="movie-form">
+        <input id="movie-title" type="text" placeholder="Movie Title" required>
+
+        <textarea
+          id="movie-description"
+          placeholder="Movie Description"
+          rows="4"
+          required
+        ></textarea>
+
+        <input id="movie-year" type="number" placeholder="Release Year" required>
+
+        <select id="movie-category" required>
+          <option value="">Select Category</option>
+          <option>Bollywood</option>
+          <option>Hollywood</option>
+          <option>South Indian</option>
+          <option>Hindi Dubbed</option>
+          <option>Punjabi</option>
+          <option>Bengali</option>
+          <option>Tamil</option>
+          <option>Telugu</option>
+          <option>Malayalam</option>
+          <option>Kannada</option>
+          <option>Marathi</option>
+          <option>Web Series</option>
+          <option>Anime</option>
+          <option>Korean Drama</option>
+          <option>Animation</option>
+          <option>Documentary</option>
+          <option>Action</option>
+          <option>Drama</option>
+          <option>Comedy</option>
+          <option>Thriller</option>
+          <option>Horror</option>
+        </select>
+
+        <input id="movie-rating" type="number" min="0" max="10" step="0.1" placeholder="Rating (0–10)">
+
+        <input id="movie-trailer-url" type="url" placeholder="YouTube Trailer URL (optional)">
+
+        <h3 class="admin-subheading">External Download Page Links</h3>
+        <input id="movie-download-480" type="url" placeholder="480p Download Page URL">
+        <input id="movie-download-720" type="url" placeholder="720p Download Page URL">
+        <input id="movie-download-1080" type="url" placeholder="1080p Download Page URL">
+        <label for="movie-screenshots-input" class="upload-label">Screenshot Image URLs (one URL per line)</label>
+        <textarea id="movie-screenshots-input" rows="4" placeholder="https://example.com/screenshot1.jpg&#10;https://example.com/screenshot2.jpg"></textarea>
+        <p class="admin-help">Use image links that you own or are authorized to display. Download links open the external page; the movie file is not uploaded to Firebase.</p>
+
+        <label for="movie-poster" class="upload-label">
+          Select Movie Poster From Gallery
+        </label>
+
+        <input id="movie-poster" type="file" accept="image/*">
+
+        <img id="poster-preview" class="poster-preview" src="" alt="Poster Preview" hidden>
+
+        <button id="save-movie-btn" class="primary-btn" type="submit">
+          Add Movie
+        </button>
+
+        <button id="cancel-edit-btn" class="secondary-btn" type="button" hidden>
+          Cancel Edit
+        </button>
+
+        <p id="movie-message"></p>
+      </form>
+    </div>
+
+    <!-- MANAGE MOVIES -->
+    <div class="admin-box">
+      <h2>Manage Movies</h2>
+      <div id="admin-movie-list"></div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="logo">Solex<span>FLIX</span></div>
+    <p>Your destination for movies and documentaries.</p>
+    <p>© 2026 SolexFLIX. All rights reserved.</p>
+  </footer>
+
+  <!-- JAVASCRIPT -->
+  <script type="module" src="./script.js"></script>
+
+</body>
+</html>
