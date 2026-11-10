@@ -20,7 +20,9 @@ function escapeHtml(input) {
     if (c === '"') return "&quot;";
     return "&#39;";
   });
-}async function getMovies() {
+}
+
+async function getMovies() {
   const documents = [];
   let pageToken = "";
   do {
@@ -72,7 +74,7 @@ export default {
       }
     }
     if (url.pathname === "/robots.txt") {
-      return new Response(`User-agent: *\\nAllow: /\\nSitemap: ${SITE}/sitemap.xml\\n`, {
+      return new Response(`User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`, {
         headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=300" }
       });
     }
