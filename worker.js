@@ -22,14 +22,73 @@ function escapeHtml(input) {
   });
 }
 
-async function getMovies() {
+
+let cachedAccessToken = "";
+let tokenExpiresAt = 0;
+
+function base64url(input) {
+  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+}
+
+function pemToArrayBuffer(pem) {
+  const body = pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g, "");
+  const binary = atob(body);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function getAccessToken(env) {
+  if (cachedAccessToken && Date.now() < tokenExpiresAt - 60000) return cachedAccessToken;
+  if (!env.FIREBASE_SERVICE_ACCOUNT) throw new Error("Missing Cloudflare secret FIREBASE_SERVICE_ACCOUNT");
+  const account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT);
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const claim = base64url(JSON.stringify({
+    iss: account.client_email,
+    scope: "https://www.googleapis.com/auth/datastore",
+    aud: account.token_uri || "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  }));
+  const unsigned = header + "." + claim;
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    pemToArrayBuffer(account.private_key),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
+  const assertion = unsigned + "." + base64url(new Uint8Array(signature));
+  const response = await fetch(account.token_uri || "https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion
+    })
+  });
+  const result = await response.json();
+  if (!response.ok || !result.access_token) {
+    throw new Error("Google OAuth token error: " + (result.error_description || result.error || response.status));
+  }
+  cachedAccessToken = result.access_token;
+  tokenExpiresAt = Date.now() + (Number(result.expires_in || 3600) * 1000);
+  return cachedAccessToken;
+}
+
+async function getMovies(env) {
   const documents = [];
   let pageToken = "";
   do {
-    const params = new URLSearchParams({ pageSize: "1000", key: API_KEY });
+    const params = new URLSearchParams({ pageSize: "1000" });
     if (pageToken) params.set("pageToken", pageToken);
     const endpoint = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DATABASE}/documents/movies?${params.toString()}`;
-    const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+    const accessToken = await getAccessToken(env);\n    const response = await fetch(endpoint, { headers: { Accept: "application/json", Authorization: "Bearer " + accessToken } });
     if (!response.ok) {
       let detail = "";
       try {
@@ -71,7 +130,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/sitemap.xml") {
       try {
-        const movies = await getMovies();
+        const movies = await getMovies(env);
         const entries = [
           `<url><loc>${SITE}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>`,
           ...movies.map(movie => `<url><loc>${SITE}/?movie=${encodeURIComponent(movie.id)}</loc><changefreq>monthly</changefreq><priority>0.8</priority>${movie.updatedAt ? `<lastmod>${escapeXml(movie.updatedAt)}</lastmod>` : ""}</url>`)
