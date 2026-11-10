@@ -592,6 +592,7 @@ function addToLocalMovieList(key, id, limit) {
    12. MOVIE DETAILS
 ========================================= */
 let currentMovieId = null;
+let watchMoreTimer = null;
 function loadMovieDetailsAd() {
   const slot = $("movie-details-ad");
   if (!slot || slot.dataset.loaded === "true") return;
@@ -682,7 +683,13 @@ currentMovieId = id;
   renderContinueWatching();
   renderWatchHistory();
 
-  // External quality-specific download page links.
+  // Show Watch More immediately; reveal available links after 20 seconds.
+  if (watchMoreTimer) {
+    clearInterval(watchMoreTimer);
+    watchMoreTimer = null;
+  }
+  const watchMoreArea = $("watch-more-area");
+  const countdownText = $("watch-more-countdown");
   const downloadArea = $("download-area");
   const downloadButtons = $("download-buttons");
   const downloadOptions = [
@@ -691,11 +698,37 @@ currentMovieId = id;
     ["1080p", movie.download1080Url]
   ].filter(([, url]) => isSafeHttpUrl(url));
 
-  if (downloadButtons && downloadArea) {
+  if (downloadButtons && downloadArea && watchMoreArea) {
     downloadButtons.innerHTML = downloadOptions.map(([quality, url]) =>
       `<a class="primary-btn download-quality-btn" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${quality} Download</a>`
     ).join("");
-    downloadArea.hidden = downloadOptions.length === 0;
+    downloadArea.hidden = true;
+    watchMoreArea.hidden = downloadOptions.length === 0;
+
+    if (downloadOptions.length > 0) {
+      let secondsLeft = 20;
+      if (countdownText) {
+        countdownText.textContent = `Your download links will appear automatically in ${secondsLeft} seconds.`;
+      }
+      watchMoreTimer = setInterval(() => {
+        if (currentMovieId !== id || !detailsSection || detailsSection.hidden) {
+          clearInterval(watchMoreTimer);
+          watchMoreTimer = null;
+          return;
+        }
+        secondsLeft -= 1;
+        if (secondsLeft > 0) {
+          if (countdownText) {
+            countdownText.textContent = `Your download links will appear automatically in ${secondsLeft} seconds.`;
+          }
+          return;
+        }
+        clearInterval(watchMoreTimer);
+        watchMoreTimer = null;
+        if (countdownText) countdownText.textContent = "Your download links are ready.";
+        downloadArea.hidden = false;
+      }, 1000);
+    }
   }
 
   // Screenshots gallery.
@@ -715,6 +748,10 @@ currentMovieId = id;
 }
 
 function hideMovieDetailsView() {
+  if (watchMoreTimer) {
+    clearInterval(watchMoreTimer);
+    watchMoreTimer = null;
+  }
   if ($("movie-trailer")) {
     $("movie-trailer").src = "";
   }
