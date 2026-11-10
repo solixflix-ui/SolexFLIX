@@ -14,7 +14,7 @@ function escapeXml(input) {
 }
 function escapeHtml(input) {
   return String(input).replace(/[&<>"']/g, (c) => ({
-    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;', "'":"&#39;"
   }[c]));
 }
 async function getMovies() {
@@ -25,7 +25,7 @@ async function getMovies() {
     if (pageToken) params.set("pageToken", pageToken);
     const endpoint = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DATABASE}/documents/movies?${params.toString()}`;
     const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
-    if (!response.ok) throw new Error("Firestore returned " + response.status);
+    if (!response.ok) throw new Error("Firestore returned HTTP " + response.status);
     const data = await response.json();
     documents.push(...(data.documents || []));
     pageToken = data.nextPageToken || "";
@@ -48,7 +48,7 @@ async function getMovies() {
 function xmlResponse(body, status = 200) {
   return new Response(body, { status, headers: {
     "Content-Type": "application/xml; charset=utf-8",
-    "Cache-Control": "public, max-age=300",
+    "Cache-Control": "public, max-age=60",
     "X-Content-Type-Options": "nosniff"
   }});
 }
@@ -64,11 +64,12 @@ export default {
         ];
         return xmlResponse(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries.join("")}</urlset>`);
       } catch (error) {
-        return xmlResponse(`<?xml version="1.0" encoding="UTF-8"?><error>Sitemap temporarily unavailable</error>`, 503);
+        const reason = error instanceof Error ? error.message : "Unknown error";
+        return xmlResponse(`<?xml version="1.0" encoding="UTF-8"?><error>${escapeXml("Sitemap unavailable: " + reason)}</error>`, 503);
       }
     }
     if (url.pathname === "/robots.txt") {
-      return new Response(`User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`, {
+      return new Response(`User-agent: *\\nAllow: /\\nSitemap: ${SITE}/sitemap.xml\\n`, {
         headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=300" }
       });
     }
@@ -98,12 +99,12 @@ export default {
         }} : {})
       };
       let html = await assetResponse.text();
-      html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
+      html = html.replace(/<title>[\\s\\S]*?<\\/title>/i, `<title>${escapeHtml(title)}</title>`);
       html = html.replace(/<meta name="description"[^>]*>/i, `<meta name="description" content="${escapeHtml(description)}">`);
-      html = html.replace(/<link rel="canonical"[^>]*>/i, `<link rel="canonical" href="${SITE}/?movie=${encodeURIComponent(movie.id)}">`);
+      html = html.replace(/<link rel="canonical"[^>]*>/i, `<link rel="canonical" href="${canonicalUrl}">`);
       html = html.replace(/<meta property="og:title"[^>]*>/i, `<meta property="og:title" content="${escapeHtml(title)}">`);
       html = html.replace(/<meta property="og:description"[^>]*>/i, `<meta property="og:description" content="${escapeHtml(description)}">`);
-      html = html.replace(/<meta property="og:url"[^>]*>/i, `<meta property="og:url" content="${SITE}/?movie=${encodeURIComponent(movie.id)}">`);
+      html = html.replace(/<meta property="og:url"[^>]*>/i, `<meta property="og:url" content="${canonicalUrl}">`);
       if (movie.poster) html = html.replace("</head>", `<meta property="og:image" content="${escapeHtml(movie.poster)}"></head>`);
       html = html.replace("</head>", `<meta name="twitter:image" content="${escapeHtml(movie.poster || "")}"><script type="application/ld+json">${JSON.stringify(movieSchema).replace(/</g, "\\u003c")}</script></head>`);
       return new Response(html, { status: 200, headers: {
