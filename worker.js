@@ -30,7 +30,16 @@ async function getMovies() {
     if (pageToken) params.set("pageToken", pageToken);
     const endpoint = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DATABASE}/documents/movies?${params.toString()}`;
     const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
-    if (!response.ok) throw new Error("Firestore returned HTTP " + response.status);
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const errorData = await response.json();
+        detail = errorData.error?.message || JSON.stringify(errorData);
+      } catch {
+        detail = await response.text().catch(() => "");
+      }
+      throw new Error("Firestore HTTP " + response.status + (detail ? ": " + detail : ""));
+    }
     const data = await response.json();
     documents.push(...(data.documents || []));
     pageToken = data.nextPageToken || "";
