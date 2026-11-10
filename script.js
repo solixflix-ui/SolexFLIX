@@ -683,13 +683,12 @@ currentMovieId = id;
   renderContinueWatching();
   renderWatchHistory();
 
-  // Show Watch More immediately; reveal available links after 20 seconds.
+  // Keep the ad area below movie details; reveal links silently after 20 seconds.
   if (watchMoreTimer) {
-    clearInterval(watchMoreTimer);
+    clearTimeout(watchMoreTimer);
     watchMoreTimer = null;
   }
   const watchMoreArea = $("watch-more-area");
-  const countdownText = $("watch-more-countdown");
   const downloadArea = $("download-area");
   const downloadButtons = $("download-buttons");
   const downloadOptions = [
@@ -706,28 +705,11 @@ currentMovieId = id;
     watchMoreArea.hidden = downloadOptions.length === 0;
 
     if (downloadOptions.length > 0) {
-      let secondsLeft = 20;
-      if (countdownText) {
-        countdownText.textContent = `Your download links will appear automatically in ${secondsLeft} seconds.`;
-      }
-      watchMoreTimer = setInterval(() => {
-        if (currentMovieId !== id || !detailsSection || detailsSection.hidden) {
-          clearInterval(watchMoreTimer);
-          watchMoreTimer = null;
-          return;
-        }
-        secondsLeft -= 1;
-        if (secondsLeft > 0) {
-          if (countdownText) {
-            countdownText.textContent = `Your download links will appear automatically in ${secondsLeft} seconds.`;
-          }
-          return;
-        }
-        clearInterval(watchMoreTimer);
+      watchMoreTimer = setTimeout(() => {
         watchMoreTimer = null;
-        if (countdownText) countdownText.textContent = "Your download links are ready.";
+        if (currentMovieId !== id || !detailsSection || detailsSection.hidden) return;
         downloadArea.hidden = false;
-      }, 1000);
+      }, 20000);
     }
   }
 
@@ -749,7 +731,7 @@ currentMovieId = id;
 
 function hideMovieDetailsView() {
   if (watchMoreTimer) {
-    clearInterval(watchMoreTimer);
+    clearTimeout(watchMoreTimer);
     watchMoreTimer = null;
   }
   if ($("movie-trailer")) {
