@@ -115,6 +115,7 @@ async function getMovies(env) {
       poster: value(fields.poster) || value(fields.posterUrl),
       category: value(fields.category) || value(fields.genre) || "",
       rating: value(fields.rating) || "",
+      ratingCount: value(fields.ratingCount) || value(fields.reviewCount) || "",
       updatedAt: fields.updatedAt?.timestampValue || fields.createdAt?.timestampValue || ""
     };
   });
@@ -166,9 +167,10 @@ export default {
         ...(movie.year ? { "dateCreated": String(movie.year) } : {}),
         ...(movie.poster ? { "image": movie.poster } : {}),
         ...(movie.category ? { "genre": movie.category } : {}),
-        ...(movie.rating !== "" ? { "aggregateRating": {
+        ...(movie.rating !== "" && Number(movie.ratingCount) > 0 ? { "aggregateRating": {
           "@type": "AggregateRating",
           "ratingValue": String(movie.rating),
+          "ratingCount": String(movie.ratingCount),
           "bestRating": "10"
         }} : {})
       };
