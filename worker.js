@@ -13,11 +13,14 @@ function escapeXml(input) {
   }[c] || ""));
 }
 function escapeHtml(input) {
-  return String(input).replace(/[&<>"']/g, (c) => ({
-    "&":"&amp;", "<":"&lt;", ">":"&gt;", "\\"":"&quot;", "'":"&#39;"
-  }[c]));
-}
-async function getMovies() {
+  return String(input).replace(/[&<>"']/g, (c) => {
+    if (c === "&") return "&amp;";
+    if (c === "<") return "&lt;";
+    if (c === ">") return "&gt;";
+    if (c === '"') return "&quot;";
+    return "&#39;";
+  });
+}async function getMovies() {
   const documents = [];
   let pageToken = "";
   do {
