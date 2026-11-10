@@ -1263,3 +1263,30 @@ body.viewer-open { overflow: hidden; }
 .watch-more-area .download-area {
   margin-top: 18px;
 }
+
+
+/* WATCH MORE AD AREA + SILENT DOWNLOAD UNLOCK */
+.watch-more-area {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 32px 0 12px;
+  padding: 22px;
+  border: 1px solid rgba(229, 9, 20, .4);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #191010, #090909);
+}
+.watch-more-area > h2 {
+  margin: 0 0 16px;
+  color: #fff;
+}
+.monetag-ad-slot {
+  width: 100%;
+  min-height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.watch-more-area .download-area {
+  margin-top: 20px;
+}
