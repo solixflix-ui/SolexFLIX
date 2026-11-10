@@ -18,18 +18,29 @@ function escapeHtml(input) {
   }[c]));
 }
 async function getMovies() {
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DATABASE}/documents/movies?pageSize=1000&key=${API_KEY}`;
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!response.ok) throw new Error("Firestore returned " + response.status);
-  const data = await response.json();
-  return (data.documents || []).map((doc) => {
+  const documents = [];
+  let pageToken = "";
+  do {
+    const params = new URLSearchParams({ pageSize: "1000", key: API_KEY });
+    if (pageToken) params.set("pageToken", pageToken);
+    const endpoint = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DATABASE}/documents/movies?${params.toString()}`;
+    const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error("Firestore returned " + response.status);
+    const data = await response.json();
+    documents.push(...(data.documents || []));
+    pageToken = data.nextPageToken || "";
+  } while (pageToken);
+
+  return documents.map((doc) => {
     const fields = doc.fields || {};
     return {
       id: doc.name.split("/").pop(),
-      title: value(fields.title) || "Movie",
+      title: value(fields.title) || value(fields.movieTitle) || value(fields.movieName) || "Movie",
       description: value(fields.description) || "Explore this title on SolexFLIX.",
       year: value(fields.year),
       poster: value(fields.poster) || value(fields.posterUrl),
+      category: value(fields.category) || value(fields.genre) || "",
+      rating: value(fields.rating) || "",
       updatedAt: fields.updatedAt?.timestampValue || fields.createdAt?.timestampValue || ""
     };
   });
@@ -70,6 +81,22 @@ export default {
       if (!movie) return assetResponse;
       const title = `${movie.title} (${movie.year || "Movie"}) | SolexFLIX`;
       const description = movie.description.slice(0, 300);
+      const canonicalUrl = `${SITE}/?movie=${encodeURIComponent(movie.id)}`;
+      const movieSchema = {
+        "@context": "https://schema.org",
+        "@type": "Movie",
+        "name": movie.title,
+        "description": description,
+        "url": canonicalUrl,
+        ...(movie.year ? { "dateCreated": String(movie.year) } : {}),
+        ...(movie.poster ? { "image": movie.poster } : {}),
+        ...(movie.category ? { "genre": movie.category } : {}),
+        ...(movie.rating !== "" ? { "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": String(movie.rating),
+          "bestRating": "10"
+        }} : {})
+      };
       let html = await assetResponse.text();
       html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
       html = html.replace(/<meta name="description"[^>]*>/i, `<meta name="description" content="${escapeHtml(description)}">`);
@@ -78,6 +105,7 @@ export default {
       html = html.replace(/<meta property="og:description"[^>]*>/i, `<meta property="og:description" content="${escapeHtml(description)}">`);
       html = html.replace(/<meta property="og:url"[^>]*>/i, `<meta property="og:url" content="${SITE}/?movie=${encodeURIComponent(movie.id)}">`);
       if (movie.poster) html = html.replace("</head>", `<meta property="og:image" content="${escapeHtml(movie.poster)}"></head>`);
+      html = html.replace("</head>", `<meta name="twitter:image" content="${escapeHtml(movie.poster || "")}"><script type="application/ld+json">${JSON.stringify(movieSchema).replace(/</g, "\\u003c")}</script></head>`);
       return new Response(html, { status: 200, headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "public, max-age=120",
