@@ -929,8 +929,13 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     hideSection(adminPanel);
     hideSection(loginSection);
-    hideSection(detailsSection);
-    showSection(websiteSection);
+    if (currentMovieId) {
+      hideSection(websiteSection);
+      showSection(detailsSection);
+    } else {
+      hideSection(detailsSection);
+      showSection(websiteSection);
+    }
   }
 });
 
