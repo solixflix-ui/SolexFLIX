@@ -102,7 +102,7 @@ export default {
         }} : {})
       };
       let html = await assetResponse.text();
-      html = html.replace(/<title>[\\s\\S]*?<\\/title>/i, `<title>${escapeHtml(title)}</title>`);
+      html = html.replace(/<title>[\s\S]*?<\/title>/i, \`<title>\${escapeHtml(title)}</title>\`);
       html = html.replace(/<meta name="description"[^>]*>/i, `<meta name="description" content="${escapeHtml(description)}">`);
       html = html.replace(/<link rel="canonical"[^>]*>/i, `<link rel="canonical" href="${canonicalUrl}">`);
       html = html.replace(/<meta property="og:title"[^>]*>/i, `<meta property="og:title" content="${escapeHtml(title)}">`);
