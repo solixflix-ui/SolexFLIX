@@ -34,7 +34,7 @@ function base64url(input) {
 }
 
 function pemToArrayBuffer(pem) {
-  const body = pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g, "");
+  const body = pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
   const binary = atob(body);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -88,7 +88,8 @@ async function getMovies(env) {
     const params = new URLSearchParams({ pageSize: "1000" });
     if (pageToken) params.set("pageToken", pageToken);
     const endpoint = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DATABASE}/documents/movies?${params.toString()}`;
-    const accessToken = await getAccessToken(env);\n    const response = await fetch(endpoint, { headers: { Accept: "application/json", Authorization: "Bearer " + accessToken } });
+    const accessToken = await getAccessToken(env);
+    const response = await fetch(endpoint, { headers: { Accept: "application/json", Authorization: "Bearer " + accessToken } });
     if (!response.ok) {
       let detail = "";
       try {
