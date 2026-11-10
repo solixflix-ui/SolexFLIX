@@ -164,7 +164,7 @@ async function loadMovies() {
     renderAll();
 
     // Open a movie when its SEO URL is loaded directly or refreshed.
-    const routeMatch = window.location.pathname.match(/^\\/movie\\/([^/]+)\\/[^/]+\\/?$/);
+    const routeMatch = window.location.pathname.match(/^\/movie\/([^/]+)\/[^/]+\/?$/);
     if (routeMatch) {
       const routeId = decodeURIComponent(routeMatch[1]);
       if (movies.some((movie) => movie.id === routeId)) {
@@ -598,7 +598,7 @@ let currentMovieId = null;
 
 function movieSlug(title = "") {
   return String(title).toLowerCase().normalize("NFKD")
-    .replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]+/g, "-")
+    .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "").slice(0, 80) || "movie";
 }
 function moviePath(movie) {
@@ -751,7 +751,7 @@ function closeMovieDetails() {
 }
 
 window.addEventListener("popstate", (event) => {
-  const routeMatch = window.location.pathname.match(/^\\/movie\\/([^/]+)\\/[^/]+\\/?$/);
+  const routeMatch = window.location.pathname.match(/^\/movie\/([^/]+)\/[^/]+\/?$/);
   if (routeMatch) {
     const routeId = decodeURIComponent(routeMatch[1]);
     if (movies.some((movie) => movie.id === routeId)) {
