@@ -1,0 +1,6 @@
+name = "tight-salad-0c51"
+compatibility_date = "2026-11-10"
+
+[assets]
+directory = "./"
+binding = "ASSETS"
