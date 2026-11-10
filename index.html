@@ -350,6 +350,21 @@
     <p>© 2026 SolexFLIX. All rights reserved.</p>
   </footer>
 
+  <!-- MONETAG SERVICE WORKER REGISTRATION -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js", { scope: "/" })
+          .then((registration) => {
+            console.info("SolexFLIX service worker registered:", registration.scope);
+          })
+          .catch((error) => {
+            console.error("SolexFLIX service worker registration failed:", error);
+          });
+      });
+    }
+  </script>
+
   <!-- JAVASCRIPT -->
   <script type="module" src="./script.js"></script>
 
