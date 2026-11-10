@@ -34,8 +34,8 @@ async function getMovies() {
     };
   });
 }
-function xmlResponse(body) {
-  return new Response(body, { headers: {
+function xmlResponse(body, status = 200) {
+  return new Response(body, { status, headers: {
     "Content-Type": "application/xml; charset=utf-8",
     "Cache-Control": "public, max-age=300",
     "X-Content-Type-Options": "nosniff"
@@ -53,7 +53,7 @@ export default {
         ];
         return xmlResponse(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries.join("")}</urlset>`);
       } catch (error) {
-        return xmlResponse(`<?xml version="1.0" encoding="UTF-8"?><error>Sitemap temporarily unavailable</error>`);
+        return xmlResponse(`<?xml version="1.0" encoding="UTF-8"?><error>Sitemap temporarily unavailable</error>`, 503);
       }
     }
     if (url.pathname === "/robots.txt") {
@@ -71,18 +71,6 @@ export default {
       const title = `${movie.title} (${movie.year || "Movie"}) | SolexFLIX`;
       const description = movie.description.slice(0, 300);
       let html = await assetResponse.text();
-      const tags = [
-        ["title", null, title],
-        ["meta", "name=\"description\"", description],
-        ["meta", "name=\"robots\"", "index, follow, max-image-preview:large"],
-        ["link", "rel=\"canonical\"", null],
-        ["meta", "property=\"og:type\"", "video.movie"],
-        ["meta", "property=\"og:site_name\"", "SolexFLIX"],
-        ["meta", "property=\"og:title\"", title],
-        ["meta", "property=\"og:description\"", description],
-        ["meta", "property=\"og:url\"", `${SITE}/?movie=${encodeURIComponent(movie.id)}`],
-        ["meta", "property=\"og:image\"", movie.poster]
-      ];
       html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
       html = html.replace(/<meta name="description"[^>]*>/i, `<meta name="description" content="${escapeHtml(description)}">`);
       html = html.replace(/<link rel="canonical"[^>]*>/i, `<link rel="canonical" href="${SITE}/?movie=${encodeURIComponent(movie.id)}">`);
