@@ -1290,3 +1290,30 @@ body.viewer-open { overflow: hidden; }
 .watch-more-area .download-area {
   margin-top: 20px;
 }
+
+
+/* COMPACT WATCH MORE PANEL */
+.watch-more-area {
+  margin: 14px 0 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.watch-more-area > h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.monetag-ad-slot {
+  min-height: 0;
+}
+.watch-more-area .download-area {
+  margin-top: 10px;
+}
+.watch-more-area .download-area h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+@media (max-width: 480px) {
+  .watch-more-area {
+    padding: 9px 10px;
+  }
+}
