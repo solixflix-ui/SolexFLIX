@@ -163,6 +163,15 @@ async function loadMovies() {
 
     renderAll();
 
+    // Open a movie when its SEO URL is loaded directly or refreshed.
+    const routeMatch = window.location.pathname.match(/^\/movie\/([^/]+)\/[^/]+\/?$/);
+    if (routeMatch) {
+      const routeId = decodeURIComponent(routeMatch[1]);
+      if (movies.some((movie) => movie.id === routeId)) {
+        openMovieDetails(routeId, false);
+      }
+    }
+
   } catch (error) {
     console.error("Movie loading error:", error);
 
@@ -586,6 +595,16 @@ function addToLocalMovieList(key, id, limit) {
    12. MOVIE DETAILS
 ========================================= */
 let currentMovieId = null;
+
+function movieSlug(title = "") {
+  return String(title).toLowerCase().normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "").slice(0, 80) || "movie";
+}
+function moviePath(movie) {
+  return `/movie/${encodeURIComponent(movie.id)}/${movieSlug(movie.title)}`;
+}
+
 function loadMovieDetailsAd() {
   const slot = $("movie-details-ad");
   if (!slot || slot.dataset.loaded === "true") return;
@@ -620,7 +639,7 @@ currentMovieId = id;
       window.history.pushState(
         { ...currentState, solexflixDetails: true, movieId: id },
         "",
-        window.location.href
+        moviePath(movie)
       );
     }
   }
@@ -720,18 +739,27 @@ function hideMovieDetailsView() {
 }
 
 function closeMovieDetails() {
-  // Use the browser history when this details view created a history entry.
+  // Use browser history for in-app navigation; direct-entry URLs return to home.
   if (window.history.state && window.history.state.solexflixDetails) {
     window.history.back();
     return;
+  }
+  if (window.location.pathname.startsWith("/movie/")) {
+    window.history.replaceState(null, "", "/");
   }
   hideMovieDetailsView();
 }
 
 window.addEventListener("popstate", (event) => {
-  if (event.state && event.state.solexflixDetails && event.state.movieId) {
-    openMovieDetails(event.state.movieId, false);
-  } else if (detailsSection && !detailsSection.hidden) {
+  const routeMatch = window.location.pathname.match(/^\/movie\/([^/]+)\/[^/]+\/?$/);
+  if (routeMatch) {
+    const routeId = decodeURIComponent(routeMatch[1]);
+    if (movies.some((movie) => movie.id === routeId)) {
+      openMovieDetails(routeId, false);
+      return;
+    }
+  }
+  if (detailsSection && !detailsSection.hidden) {
     hideMovieDetailsView();
   }
 });
@@ -901,8 +929,13 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     hideSection(adminPanel);
     hideSection(loginSection);
-    hideSection(detailsSection);
-    showSection(websiteSection);
+    if (currentMovieId) {
+      hideSection(websiteSection);
+      showSection(detailsSection);
+    } else {
+      hideSection(detailsSection);
+      showSection(websiteSection);
+    }
   }
 });
 
