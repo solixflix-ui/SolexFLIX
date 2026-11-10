@@ -14,7 +14,7 @@ function escapeXml(input) {
 }
 function escapeHtml(input) {
   return String(input).replace(/[&<>"']/g, (c) => ({
-    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;', "'":"&#39;"
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", "\\"":"&quot;", "'":"&#39;"
   }[c]));
 }
 async function getMovies() {
