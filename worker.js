@@ -30,7 +30,7 @@ function base64url(input) {
   const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
 function pemToArrayBuffer(pem) {
@@ -150,7 +150,7 @@ export default {
     const assetResponse = await env.ASSETS.fetch(request);
     if (!movieId || url.pathname !== "/" || !assetResponse.ok) return assetResponse;
     try {
-      const movies = await getMovies();
+      const movies = await getMovies(env);
       const movie = movies.find(item => item.id === movieId);
       if (!movie) return assetResponse;
       const title = `${movie.title} (${movie.year || "Movie"}) | SolexFLIX`;
