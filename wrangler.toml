@@ -1,2 +1,8 @@
 name = "tight-salad-0c51"
+main = "./worker.js"
 compatibility_date = "2026-11-10"
+
+[assets]
+directory = "./"
+binding = "ASSETS"
+run_worker_first = ["/movie/*", "/sitemap.xml"]
