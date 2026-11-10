@@ -1241,3 +1241,25 @@ body.viewer-open { overflow: hidden; }
   .movie-pagination { gap: 5px; }
   .movie-pagination button { min-width: 35px; min-height: 36px; padding: 7px 9px; }
 }
+
+
+/* WATCH MORE - AUTOMATIC 20 SECOND UNLOCK */
+.watch-more-area {
+  margin-top: 28px;
+  padding: 20px;
+  border: 1px solid rgba(229, 9, 20, .45);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(229, 9, 20, .12), #111);
+}
+.watch-more-area > h2 {
+  margin: 0 0 10px;
+  color: #fff;
+}
+#watch-more-countdown {
+  color: #ccc;
+  margin: 0 0 14px;
+  line-height: 1.6;
+}
+.watch-more-area .download-area {
+  margin-top: 18px;
+}
