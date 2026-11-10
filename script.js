@@ -593,6 +593,23 @@ function addToLocalMovieList(key, id, limit) {
 ========================================= */
 let currentMovieId = null;
 let watchMoreTimer = null;
+function loadMonetagWatchMoreAd() {
+  const slot = $("monetag-ad-slot");
+  if (!slot || slot.dataset.loaded === "true") return;
+  slot.dataset.loaded = "true";
+
+  const monetagScript = document.createElement("script");
+  monetagScript.src = "https://quge5.com/88/tag.min.js";
+  monetagScript.dataset.zone = "308513";
+  monetagScript.async = true;
+  monetagScript.setAttribute("data-cfasync", "false");
+  monetagScript.onerror = () => {
+    console.error("Monetag Watch More ad script failed to load.");
+    slot.dataset.loaded = "false";
+  };
+  slot.appendChild(monetagScript);
+}
+
 function loadMovieDetailsAd() {
   const slot = $("movie-details-ad");
   if (!slot || slot.dataset.loaded === "true") return;
@@ -705,6 +722,7 @@ currentMovieId = id;
     watchMoreArea.hidden = downloadOptions.length === 0;
 
     if (downloadOptions.length > 0) {
+      loadMonetagWatchMoreAd();
       watchMoreTimer = setTimeout(() => {
         watchMoreTimer = null;
         if (currentMovieId !== id || !detailsSection || detailsSection.hidden) return;
