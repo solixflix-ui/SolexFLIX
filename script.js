@@ -163,6 +163,12 @@ async function loadMovies() {
 
     renderAll();
 
+    // Open a movie directly when Google or a visitor lands on /?movie=ID.
+    const requestedMovieId = new URLSearchParams(window.location.search).get("movie");
+    if (requestedMovieId && movies.some((movie) => movie.id === requestedMovieId)) {
+      openMovieDetails(requestedMovieId, false);
+    }
+
   } catch (error) {
     console.error("Movie loading error:", error);
 
@@ -620,7 +626,11 @@ currentMovieId = id;
       window.history.pushState(
         { ...currentState, solexflixDetails: true, movieId: id },
         "",
-        window.location.href
+        (() => {
+          const detailUrl = new URL(window.location.href);
+          detailUrl.searchParams.set("movie", id);
+          return detailUrl.pathname + detailUrl.search + detailUrl.hash;
+        })()
       );
     }
   }
@@ -717,6 +727,13 @@ function hideMovieDetailsView() {
   hideSection(detailsSection);
   showSection(websiteSection);
   currentMovieId = null;
+
+  // Remove a direct movie query after closing its detail view.
+  const cleanUrl = new URL(window.location.href);
+  if (cleanUrl.searchParams.has("movie")) {
+    cleanUrl.searchParams.delete("movie");
+    window.history.replaceState(window.history.state, "", cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+  }
 }
 
 function closeMovieDetails() {
