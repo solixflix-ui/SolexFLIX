@@ -201,7 +201,7 @@
         <div class="profile-numbers"><div><strong id="profile-post-count">0</strong><span>Posts</span></div><div><strong id="profile-follower-count">0</strong><button type="button" data-profile-relation="followers">Followers</button></div><div><strong id="profile-following-count">0</strong><button type="button" data-profile-relation="following">Following</button></div></div>
       </div>
       <div class="profile-name"><strong id="profile-display-name">SolexFLIX Creator</strong><span id="profile-handle">@solexflix</span><p id="profile-bio">Movies, moments and people. Welcome to the SolexFLIX community.</p></div>
-      <div class="profile-actions"><button id="profile-follow-btn" type="button" hidden>Follow</button><button id="share-profile-btn" type="button">Share profile</button><button id="admin-shortcut-btn" type="button">Admin panel</button><button id="profile-signout-btn" type="button" hidden>Sign out</button></div>
+      <div class="profile-actions"><button id="profile-follow-btn" type="button" hidden>Follow</button><button id="share-profile-btn" type="button">Share profile</button><button id="profile-signout-btn" type="button" hidden>Sign out</button></div>
       <div class="profile-content-tabs"><button class="profile-content-tab active" data-profile-tab="posts">▦ Posts</button><button class="profile-content-tab" data-profile-tab="reels">▶ Reels</button><button class="profile-content-tab" data-profile-tab="tagged">♙ Tagged</button></div>
       <div class="profile-publish-tools" id="profile-publish-tools">
         <h3>Create on SolexFLIX</h3>
@@ -274,6 +274,19 @@
       <h2 id="comments-title">Comments</h2>
       <div id="reel-comments-list" class="reel-comments-list"></div>
       <form id="reel-comment-form" class="chat-compose"><input id="reel-comment-input" maxlength="500" placeholder="Add a comment..." required><button type="submit">➤</button></form>
+    </div>
+  </div>
+
+  <div id="call-modal" class="call-modal" hidden role="dialog" aria-modal="true" aria-label="Call">
+    <div class="call-card">
+      <div id="call-status">Connecting…</div>
+      <video id="remote-call-video" autoplay playsinline></video>
+      <video id="local-call-video" autoplay muted playsinline></video>
+      <div class="call-actions">
+        <button id="call-mute-btn" type="button">Mute</button>
+        <button id="call-camera-btn" type="button">Camera off</button>
+        <button id="call-end-btn" type="button">End call</button>
+      </div>
     </div>
   </div>
 
