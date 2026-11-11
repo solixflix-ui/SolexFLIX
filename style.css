@@ -1898,3 +1898,10 @@ body[data-active-view="profile-view"] #profile-view{display:block}
 .notification-row>span:last-child{display:flex;flex-direction:column;gap:4px}
 .notification-row small{font-size:9px;color:#8e95a2}
 .notification-row.unread{background:#20232a}
+
+
+.profile-avatar-wrap{position:relative;flex:0 0 76px}
+.profile-avatar-wrap .profile-avatar{margin:0;overflow:hidden}
+.profile-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+#profile-photo-btn{position:absolute;right:-2px;bottom:0;width:24px;height:24px;border-radius:50%;border:2px solid #101319;background:#e50914;color:#fff;font-size:16px;line-height:1}
+@media(max-width:600px){.profile-avatar-wrap{flex-basis:68px}.profile-avatar-wrap .profile-avatar{width:68px;height:68px}}
