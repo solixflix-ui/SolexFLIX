@@ -995,7 +995,10 @@ onAuthStateChanged(auth, async (user) => {
     subscribeStories();
     subscribeNotifications();
   } else {
+    if(storyUnsubscribe)storyUnsubscribe();
+    if(notificationUnsubscribe)notificationUnsubscribe();
     socialProfile = null;
+    viewedProfile = null;
     renderProfilePage();
   }
 });
