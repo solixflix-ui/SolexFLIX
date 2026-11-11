@@ -1397,6 +1397,7 @@ if ($("logout-btn")) {
 // Video files must be hosted at an authorized direct URL.
 const videosRef = collection(db, "videos");
 let reels = [];
+let activeReelFilter = "all";
 let likedReelIds = new Set();
 let reelsObserver = null;
 // Keep the existing Adsterra homepage slot and mount it inside the Reels feed.
@@ -1494,10 +1495,16 @@ async function loadReels() {
     reels = snap.docs.map(d => ({ id:d.id, ...d.data() }))
       .filter(r => safeVideoUrl(r.videoUrl || r.video || r.url))
       .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    let visibleReels=reels;
+    if(activeReelFilter==="friends" && currentUser && !isAdmin){
+      const followingSnap=await getDocs(query(followsRef,where("followerUid","==",currentUser.uid),limit(500)));
+      const followed=new Set(followingSnap.docs.map(d=>d.data().followingUid));
+      visibleReels=reels.filter(r=>followed.has(r.creatorUid));
+    }
     // Detach the existing ad before replacing feed markup, then place it after reel 3.
     if (homepageAdSlot) homepageAdSlot.remove();
-    container.innerHTML = reels.length
-      ? reels.map(reelMarkup).join("")
+    container.innerHTML = visibleReels.length
+      ? visibleReels.map(reelMarkup).join("")
       : '<div class="reels-empty"><strong>No reels yet</strong><p>Admin dashboard se pehla funny video publish karo.</p></div>';
     if (homepageAdSlot) {
       const adCard = document.createElement("div");
@@ -1663,6 +1670,12 @@ document.querySelectorAll(".search-tab").forEach(btn=>btn.addEventListener("clic
 $("social-search-results")?.addEventListener("click",e=>{
   if(e.target.closest("[data-open-reels]"))setActiveAppView("reels-feed");
 });
+document.querySelectorAll("[data-reel-feed]").forEach(btn=>btn.addEventListener("click",async()=>{
+  activeReelFilter=btn.dataset.reelFeed||"all";
+  document.querySelectorAll("[data-reel-feed]").forEach(b=>b.classList.toggle("active",b===btn));
+  if(activeReelFilter==="friends"&&(!currentUser||isAdmin)){activeReelFilter="all";openSocialAuth("login");return;}
+  await loadReels();
+}));
 $("search-toggle")?.addEventListener("click",()=>setActiveAppView("search-view"));
 $("reels-create-btn")?.addEventListener("click",()=>currentUser&&!isAdmin?setActiveAppView("profile-view"):openSocialAuth("signup"));
 $("bottom-create-btn")?.addEventListener("click",()=>{
