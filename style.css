@@ -1942,3 +1942,49 @@ body[data-app-overlay] .bottom-nav,body[data-app-overlay] .app-topbar{display:no
 }
 .chat-back-btn{border:0;background:transparent;color:#fff;font-size:20px;padding:3px 7px}
 .profile-publish-tools[hidden]{display:none!important}
+
+
+/* Compact mobile sizing and calling UI */
+#admin-shortcut-btn{display:none!important}
+.profile-actions{display:flex;flex-wrap:wrap;gap:6px}
+.profile-actions button{padding:7px 9px;font-size:10px}
+.social-auth-card{width:min(100%,350px);padding:18px 15px;border-radius:13px}
+.social-auth-card h2{font-size:18px;line-height:1.25}
+.social-auth-card>p{font-size:11px;margin-bottom:12px}
+#social-auth-form{gap:7px}
+#social-auth-form input{padding:9px 10px;font-size:12px}
+#social-auth-form .primary-btn{padding:9px;font-size:12px}
+.details-container{gap:14px}
+.details-info h1{font-size:clamp(21px,5vw,30px)}
+.details-info p{font-size:12px}
+#trailer-container h2{font-size:17px}
+#movie-trailer{height:auto;aspect-ratio:16/9}
+.chat-header{display:flex;gap:7px}
+.chat-call-actions{margin-left:auto;display:flex;gap:7px}
+.chat-call-actions button{width:30px;height:30px;border:1px solid #444957;border-radius:50%;background:#20242d;color:#fff;font-size:16px}
+.call-modal{position:fixed;z-index:5000;inset:0;background:#050609ed;display:grid;place-items:center;padding:16px}
+.call-card{width:min(100%,440px);display:flex;flex-direction:column;gap:12px;text-align:center;background:#171b24;border:1px solid #343b49;border-radius:16px;padding:16px}
+.call-card video{width:100%;max-height:48dvh;object-fit:cover;background:#080a0e;border-radius:10px}
+#local-call-video{width:28%;max-height:140px;align-self:flex-end}
+.call-actions{display:flex;justify-content:center;gap:8px}
+.call-actions button{border:0;border-radius:9px;padding:10px 13px;background:#303744;color:#fff}
+#call-end-btn{background:#d71936}
+@media(max-width:600px){
+ .details-page{padding:12px!important}
+ .details-container{grid-template-columns:82px minmax(0,1fr)!important;gap:10px!important}
+ #details-poster{width:82px!important}
+ .details-info{padding:12px!important}
+ .social-auth-card{max-height:88dvh;overflow:auto}
+ .profile-topbar h1{font-size:21px}
+ .profile-summary{gap:18px;padding:9px 0}
+ .profile-avatar{width:60px;height:60px;flex-basis:60px;font-size:23px}
+ .profile-avatar-wrap{flex-basis:60px}
+ .profile-avatar-wrap .profile-avatar{width:60px;height:60px}
+ .profile-numbers{gap:7px}
+ .profile-numbers strong{font-size:13px}
+ .profile-numbers span,.profile-numbers button{font-size:9px}
+ .profile-name{font-size:11px;margin:6px 0 9px}
+ .profile-content-tabs{margin-top:12px}
+ .profile-content-tab{padding:9px 3px;font-size:10px}
+ .social-view{padding:11px 10px 16px}
+}
