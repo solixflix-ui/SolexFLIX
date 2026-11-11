@@ -1642,3 +1642,20 @@ body { overflow-x:hidden; }
   .reel-details { left:14px; bottom:20px; }
   .reel-actions { right:10px; bottom:20px; }
 }
+
+
+/* Existing Adsterra homepage unit, surfaced between Reels instead of hidden movie sections. */
+.reel-ad-card {
+  width:100%; height:100%; min-height:420px; box-sizing:border-box;
+  display:flex; align-items:center; justify-content:center;
+  scroll-snap-align:start; scroll-snap-stop:always;
+  background:#101018; padding:20px;
+}
+.reel-ad-card .ad-slot-home {
+  display:block !important; width:300px; max-width:100%;
+  min-height:250px; margin:0 auto; text-align:center;
+}
+.reel-ad-card .ad-slot-home iframe { max-width:100%; }
+@media (max-width:600px) {
+  .reel-ad-card { min-height:400px; }
+}
