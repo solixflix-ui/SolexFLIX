@@ -1608,6 +1608,11 @@ $("reel-form")?.addEventListener("submit", async event => {
 function setActiveAppView(viewId) {
   const allowed = ["home-view", "search-view", "reels-feed", "messages-view", "profile-view"];
   if (!allowed.includes(viewId)) return;
+  if (!isAdmin) {
+    showSection(websiteSection);
+    hideSection(detailsSection);
+    hideSection(loginSection);
+  }
   delete document.body.dataset.appOverlay;
   document.body.dataset.activeView = viewId;
   document.querySelectorAll(".bottom-nav-btn").forEach((button) => {
