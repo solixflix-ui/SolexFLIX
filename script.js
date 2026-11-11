@@ -1622,6 +1622,10 @@ function setActiveAppView(viewId) {
     hideSection(detailsSection);
     hideSection(loginSection);
   }
+  allowed.forEach(id => {
+    const section = $(id);
+    if (section) section.hidden = id !== viewId;
+  });
   delete document.body.dataset.appOverlay;
   document.body.dataset.activeView = viewId;
   document.querySelectorAll(".bottom-nav-btn").forEach((button) => {
