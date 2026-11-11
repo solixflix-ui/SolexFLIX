@@ -1693,7 +1693,6 @@ function startCreateReel(){
   setActiveAppView("profile-view");
   setTimeout(()=>{
     $("user-reel-form")?.scrollIntoView({behavior:"smooth",block:"center"});
-    $("user-reel-file")?.click();
   },120);
 }
 $("reels-create-btn")?.addEventListener("click",startCreateReel);
@@ -1833,6 +1832,8 @@ function renderProfilePage(){
   const p=viewedProfile||socialProfile;
   const own=!!currentUser&&p?.uid===currentUser.uid;
   if($("edit-profile-btn"))$("edit-profile-btn").hidden=!own;
+  if($("profile-publish-tools"))$("profile-publish-tools").hidden=!own;
+  if($("profile-signout-btn"))$("profile-signout-btn").hidden=!own;
   if($("profile-message-btn"))$("profile-message-btn").hidden=own||!p?.uid;
   if($("profile-follow-btn"))$("profile-follow-btn").hidden=own||!p?.uid||!currentUser||isAdmin;
   if(p?.uid&&!own&&currentUser)refreshProfileFollowState(p.uid);
