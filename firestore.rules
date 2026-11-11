@@ -17,7 +17,7 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    match /videos/{videoId} {
+    match /photos/{photoId} { allow read: if true; allow create: if request.auth != null && request.resource.data.creatorUid == request.auth.uid; allow update, delete: if request.auth != null && resource.data.creatorUid == request.auth.uid; }\n    match /videos/{videoId} {
       allow read: if isAdmin()
         || resource.data.get("status", "published") == "published";
       allow create: if isAdmin()
