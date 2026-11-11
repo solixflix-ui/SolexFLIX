@@ -1855,9 +1855,9 @@ async function searchAccounts(term){
   const host=$("social-search-results");if(!host)return;
   if(!term.trim()){renderSocialSearch();return;}
   try{
-    const q=query(usersRef,orderBy("username"),limit(30));
+    const q=query(usersRef,orderBy("username"),limit(100));
     const snap=await getDocs(q);
-    userSearchResults=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>(p.username||"").toLowerCase().includes(term.toLowerCase())||(p.displayName||"").toLowerCase().includes(term.toLowerCase()));
+    userSearchResults=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>!term||(p.username||"").toLowerCase().includes(term.toLowerCase())||(p.displayName||"").toLowerCase().includes(term.toLowerCase()));
     host.innerHTML=userSearchResults.map(p=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((p.displayName||p.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(p.displayName||p.username)+'</b><small>@'+escapeHTML(p.username||"creator")+'</small></div><button class="profile-view-action" data-profile-uid="'+escapeHTML(p.uid)+'">View</button><button class="follow-action" data-follow-uid="'+escapeHTML(p.uid)+'" data-follow-name="'+escapeHTML(p.username||"creator")+'">Follow</button></div>').join("")||'<div class="empty-state">No accounts found.</div>';
   }catch(err){host.innerHTML='<div class="empty-state">Account search needs Firestore user read permissions.</div>';console.warn(err);}
 }
@@ -1914,7 +1914,7 @@ async function openDirectMessage(username){
     const participants=[currentUser.uid,target.uid].sort();
     const threadId=participants.join("_");
     if(activeChatUnsubscribe)activeChatUnsubscribe();
-    activeChatUnsubscribe=onSnapshot(query(messagesRef,where("threadId","==",threadId),limit(100)),snap=>{
+    activeChatUnsubscribe=onSnapshot(query(messagesRef,where("participants","array-contains",currentUser.uid),limit(100)),snap=>{
       const box=$("chat-messages");if(!box)return;
       box.innerHTML=snap.docs.map(d=>{const m=d.data();return '<div class="chat-bubble '+(m.senderUid===currentUser.uid?"own":"")+'">'+escapeHTML(m.text||"")+'</div>';}).join("");
       box.scrollTop=box.scrollHeight;
@@ -1922,7 +1922,7 @@ async function openDirectMessage(username){
     $("chat-compose").addEventListener("submit",async ev=>{
       ev.preventDefault();const input=$("chat-message-input"),value=input.value.trim();if(!value)return;
       input.disabled=true;
-      try{await addDoc(messagesRef,{threadId,senderUid:currentUser.uid,recipientUid:target.uid,senderUsername:socialProfile?.username||"creator",recipientUsername:target.username||"creator",text:value,createdAt:serverTimestamp()});input.value="";}
+      try{await addDoc(messagesRef,{threadId,participants:[currentUser.uid,target.uid],senderUid:currentUser.uid,recipientUid:target.uid,senderUsername:socialProfile?.username||"creator",recipientUsername:target.username||"creator",text:value,createdAt:serverTimestamp()});input.value="";}
       catch(err){alert("Message failed: "+err.message);}finally{input.disabled=false;input.focus();}
     });
   }catch(err){alert("Could not open chat: "+err.message);}
