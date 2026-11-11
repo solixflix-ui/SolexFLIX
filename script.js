@@ -1505,20 +1505,9 @@ async function loadReels() {
       const followed=new Set(followingSnap.docs.map(d=>d.data().followingUid));
       visibleReels=reels.filter(r=>followed.has(r.creatorUid));
     }
-    // Detach the existing ad before replacing feed markup, then place it after reel 3.
-    if (homepageAdSlot) homepageAdSlot.remove();
     container.innerHTML = visibleReels.length
       ? visibleReels.map(reelMarkup).join("")
       : '<div class="reels-empty"><strong>No reels yet</strong><p>Admin dashboard se pehla funny video publish karo.</p></div>';
-    if (homepageAdSlot) {
-      const adCard = document.createElement("div");
-      adCard.className = "reel-ad-card";
-      adCard.setAttribute("aria-label", "Advertisement");
-      adCard.appendChild(homepageAdSlot);
-      const thirdReel = container.querySelectorAll(".reel-card")[2];
-      if (thirdReel) thirdReel.after(adCard);
-      else container.appendChild(adCard);
-    }
     setupReelPlayback();
   } catch (error) {
     console.error("Reels load error:", error);
@@ -1786,6 +1775,7 @@ $("social-auth-form")?.addEventListener("submit",async e=>{
     }
     $("social-auth-modal").hidden=true;
     $("social-auth-form").reset();
+    viewedProfile=null;
     setActiveAppView("profile-view");
   }catch(error){
     console.error("Social authentication:",error);
