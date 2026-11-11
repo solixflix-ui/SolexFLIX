@@ -1552,5 +1552,38 @@ $("reel-form")?.addEventListener("submit", async event => {
    26. START WEBSITE
 ========================================= */
 
+
+/* =========================================
+   APP BOTTOM NAVIGATION
+========================================= */
+function setActiveAppView(viewId) {
+  const allowed = ["home-view", "reels-feed", "messages-view", "profile-view"];
+  if (!allowed.includes(viewId)) return;
+  document.body.dataset.activeView = viewId;
+  document.querySelectorAll(".bottom-nav-btn").forEach((button) => {
+    const active = button.dataset.view === viewId;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-current", active ? "page" : "false");
+  });
+  if (viewId === "reels-feed") {
+    loadReels();
+  }
+  if (viewId === "profile-view") {
+    const count = document.querySelectorAll("#reels-container .reel-card").length;
+    const countNode = $("profile-reel-count");
+    if (countNode) countNode.textContent = String(count);
+  }
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+document.querySelectorAll(".bottom-nav-btn").forEach((button) => {
+  button.addEventListener("click", () => setActiveAppView(button.dataset.view));
+});
+$("brand-home")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  setActiveAppView("home-view");
+});
+setActiveAppView("home-view");
+
+
 loadMovies();
 loadReels();
