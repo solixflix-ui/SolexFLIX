@@ -20,7 +20,8 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
       allow update, delete: if signedIn() && request.auth.uid == uid;
     }
-    match /photos/{uid}/{fileName} { allow read: if true; allow create: if signedIn() && request.auth.uid == uid && request.resource.size < 25 * 1024 * 1024 && request.resource.contentType.matches("image/.*"); allow update, delete: if signedIn() && request.auth.uid == uid; }\n    match /stories/{uid}/{fileName} {
+    match /photos/{uid}/{fileName} { allow read: if true; allow create: if signedIn() && request.auth.uid == uid && request.resource.size < 25 * 1024 * 1024 && request.resource.contentType.matches("image/.*"); allow update, delete: if signedIn() && request.auth.uid == uid; }
+    match /stories/{uid}/{fileName} {
       allow read: if true;
       allow create: if signedIn()
         && request.auth.uid == uid
