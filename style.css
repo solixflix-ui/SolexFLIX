@@ -1890,3 +1890,11 @@ body[data-active-view="profile-view"] #profile-view{display:block}
 .profile-numbers button:active{color:#fff}
 #profile-follow-btn{background:#e50914;border-color:#e50914}
 #profile-follow-btn.is-following{background:#242832;border-color:#454b57;color:#fff}
+
+
+.notification-trigger{position:relative}
+.notification-trigger i{position:absolute;right:2px;top:3px;width:7px;height:7px;border-radius:50%;background:#e50914;border:1px solid #0d0f13}
+.notification-row{display:flex;align-items:center;gap:10px;width:100%;padding:10px 3px;border:0;border-bottom:1px solid #2a2e38;background:transparent;color:#eee;text-align:left;font-size:12px}
+.notification-row>span:last-child{display:flex;flex-direction:column;gap:4px}
+.notification-row small{font-size:9px;color:#8e95a2}
+.notification-row.unread{background:#20232a}
