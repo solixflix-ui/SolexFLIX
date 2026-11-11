@@ -1643,51 +1643,7 @@ $("bottom-create-btn")?.addEventListener("click",()=>{
 });
 $("admin-shortcut-btn")?.addEventListener("click",()=> $("admin-open")?.click());
 $("profile-settings-btn")?.addEventListener("click",()=>alert("Account settings will be connected with account authentication in the next backend stage."));
-$("edit-profile-btn")?.addEventListener("click",()=>{
-  const name=prompt("Display name",localStorage.getItem("solexflix_profile_name")||"SolexFLIX Creator");
-  if(name===null)return;
-  const bio=prompt("Profile bio",localStorage.getItem("solexflix_profile_bio")||"Movies, moments and people.");
-  if(bio===null)return;
-  localStorage.setItem("solexflix_profile_name",name.slice(0,50));
-  localStorage.setItem("solexflix_profile_bio",bio.slice(0,160));
-  updateLocalProfile();
-});
-function updateLocalProfile(){
-  const name=localStorage.getItem("solexflix_profile_name")||"SolexFLIX Creator";
-  const bio=localStorage.getItem("solexflix_profile_bio")||"Movies, moments and people. Welcome to the SolexFLIX community.";
-  if($("profile-display-name"))$("profile-display-name").textContent=name;
-  if($("profile-bio"))$("profile-bio").textContent=bio;
-}
-updateLocalProfile();
-$("share-profile-btn")?.addEventListener("click",async()=>{
-  const data={title:"SolexFLIX",text:"Find me on SolexFLIX",url:location.origin+location.pathname};
-  try{if(navigator.share)await navigator.share(data);else if(navigator.clipboard){await navigator.clipboard.writeText(data.url);alert("Profile link copied.");}}catch{}
-});
-$("story-add-btn")?.addEventListener("click",()=>alert("Story publishing needs the next media-upload and moderation connection. Stories area is ready in this preview."));
-$("new-message-btn")?.addEventListener("click",$("start-chat-btn")?.click.bind($("start-chat-btn"))||(()=>alert("Choose an account to start a conversation.")));
-$("start-chat-btn")?.addEventListener("click",()=>{
-  const who=prompt("Enter the exact SolexFLIX username to start a chat:");
-  if(!who?.trim())return;
-  const list=$("conversation-list");
-  const safe=escapeHTML(who.trim().replace(/^@/,""));
-  list.innerHTML='<button class="conversation-item active" type="button"><span class="mini-avatar">'+safe.charAt(0).toUpperCase()+'</span><span><b>@'+safe+'</b><small>New conversation</small></span></button>';
-  $("chat-panel").innerHTML='<div class="chat-header"><span class="mini-avatar">'+safe.charAt(0).toUpperCase()+'</span><b>@'+safe+'</b></div><div class="chat-messages" id="chat-messages"><div class="empty-state">Conversation started on this device preview. Connect messaging backend to deliver messages to other users.</div></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
-  $("chat-compose")?.addEventListener("submit",e=>{
-    e.preventDefault();const input=$("chat-message-input");const value=input?.value.trim();if(!value)return;
-    const line=document.createElement("div");line.className="chat-bubble own";line.textContent=value;$("chat-messages")?.appendChild(line);input.value="";
-  });
-});
-$("message-search-input")?.addEventListener("input",e=>{
-  const q=e.target.value.toLowerCase();
-  document.querySelectorAll(".conversation-item").forEach(item=>item.hidden=!item.textContent.toLowerCase().includes(q));
-});
-document.querySelectorAll(".profile-content-tab").forEach(btn=>btn.addEventListener("click",()=>{
-  document.querySelectorAll(".profile-content-tab").forEach(b=>b.classList.toggle("active",b===btn));
-  const grid=$("profile-content-grid");
-  if(grid)grid.innerHTML=btn.dataset.profileTab==="reels" && reels.length
-    ? reels.map(r=>'<div class="profile-reel-tile"><span>▶</span><small>'+escapeHTML(r.caption||"Reel")+'</small></div>').join("")
-    : '<div class="empty-state">Nothing here yet. Your '+escapeHTML(btn.dataset.profileTab)+' will appear here.</div>';
-}));
+
 
 
 /* =========================================
@@ -1846,10 +1802,7 @@ $("user-reel-form")?.addEventListener("submit",async e=>{
 $("profile-content-grid")?.addEventListener("click",e=>{
   const tile=e.target.closest(".profile-reel-tile");if(tile)setActiveAppView("reels-feed");
 });
-$("share-profile-btn")?.addEventListener("click",async()=>{
-  const username=socialProfile?.username||"solexflix";
-  const url=location.origin+location.pathname+"?user="+encodeURIComponent(username);
-  try{if(navigator.share)await navigator.share({title:"SolexFLIX",text:"Follow @"+username,url});else{await navigator.clipboard.writeText(url);alert("Profile link copied.");}}catch{}
+else{await navigator.clipboard.writeText(url);alert("Profile link copied.");}}catch{}
 });
 async function searchAccounts(term){
   const host=$("social-search-results");if(!host)return;
@@ -1905,7 +1858,6 @@ async function openDirectMessage(username){
   }catch(err){alert("Could not open chat: "+err.message);}
 }
 $("new-message-btn")?.addEventListener("click",()=>{const who=prompt("Enter username to message:");if(who)openDirectMessage(who);});
-$("start-chat-btn")?.addEventListener("click",()=>{const who=prompt("Enter username to message:");if(who)openDirectMessage(who);});
 $("social-search-results")?.addEventListener("dblclick",e=>{
   const row=e.target.closest(".creator-result");const name=row?.querySelector("small")?.textContent?.replace("@","");
   if(name)openDirectMessage(name);
