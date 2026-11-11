@@ -167,6 +167,17 @@ function escapeHTML(value = "") {
   })[char]);
 }
 
+function setButtonBusy(button,busy,label,idleLabel){
+ if(!button)return;
+ if(busy){button.dataset.idleLabel=idleLabel||button.textContent;button.disabled=true;button.classList.add("is-loading");button.setAttribute("aria-busy","true");button.innerHTML='<span class="button-spinner" aria-hidden="true"></span>'+escapeHTML(label||"Please wait…");}
+ else{button.disabled=false;button.classList.remove("is-loading");button.setAttribute("aria-busy","false");button.textContent=idleLabel||button.dataset.idleLabel||button.textContent;}
+}
+function showUploadProgress(label,percent){
+ let box=$("social-upload-progress");
+ if(!box){box=document.createElement("div");box.id="social-upload-progress";box.className="social-upload-progress";box.setAttribute("role","status");document.body.appendChild(box);}
+ box.hidden=false;box.innerHTML='<span>'+escapeHTML(label)+'</span><strong>'+Math.round(percent)+'%</strong><div class="upload-progress-track"><i style="width:'+Math.max(0,Math.min(100,percent))+'%"></i></div>';
+}
+function hideUploadProgress(){const box=$("social-upload-progress");if(box)box.hidden=true;}
 function showMessage(element, message, success = false) {
   if (!element) return;
 
@@ -1778,42 +1789,32 @@ $("account-open")?.addEventListener("click",()=>currentUser&&!isAdmin?setActiveA
 $("close-social-auth")?.addEventListener("click",()=>$("social-auth-modal").hidden=true);
 document.querySelectorAll(".auth-mode").forEach(b=>b.addEventListener("click",()=>openSocialAuth(b.dataset.authMode)));
 $("social-auth-form")?.addEventListener("submit",async e=>{
-  e.preventDefault();
-  const email=$("social-auth-email").value.trim().toLowerCase();
-  const password=$("social-auth-password").value;
-  const username=$("social-auth-username").value.trim().toLowerCase().replace(/^@/,"");
-  const name=$("social-auth-name").value.trim();
-  const submit=$("social-auth-submit");
-  if(socialAuthMode==="signup" && !/^[a-z0-9._]{3,24}$/.test(username)){
-    showMessage($("social-auth-message"),"Username: 3–24 letters, numbers, dot or underscore.");return;
-  }
-  submit.disabled=true;
-  try{
-    if(socialAuthMode==="signup"){
-      const existing=await getDocs(query(usersRef,where("username","==",username),limit(1)));
-      if(!existing.empty)throw new Error("This username is already taken.");
-      const credential=await createUserWithEmailAndPassword(auth,email,password);
-      const profile={uid:credential.user.uid,username,displayName:name||username,bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
-      try {
-        await updateProfile(credential.user,{displayName:name||username});
-        await setDoc(doc(db,"users",credential.user.uid),profile);
-        socialProfile=profile;
-      } catch (profileError) {
-        console.error("Profile creation failed after Auth account creation:",profileError);
-        showMessage($("social-auth-message"),"Account created, but profile save was blocked by Firestore rules. Sign in again after the Firebase rules are published.");
-        return;
-      }
-    }else{
-      await signInWithEmailAndPassword(auth,email,password);
-    }
-    $("social-auth-modal").hidden=true;
-    $("social-auth-form").reset();
-    viewedProfile=null;
-    setActiveAppView("profile-view");
-  }catch(error){
-    console.error("Social authentication:",error);
-    showMessage($("social-auth-message"),error.message||"Could not sign in.");
-  }finally{submit.disabled=false;}
+ e.preventDefault();
+ const email=$("social-auth-email").value.trim().toLowerCase(),password=$("social-auth-password").value;
+ const username=$("social-auth-username").value.trim().toLowerCase().replace(/^@/,""),name=$("social-auth-name").value.trim(),submit=$("social-auth-submit");
+ if(socialAuthMode==="signup"&&!/^[a-z0-9._]{3,24}$/.test(username)){showMessage($("social-auth-message"),"Username: 3–24 letters, numbers, dot or underscore.");return;}
+ setButtonBusy(submit,true,socialAuthMode==="signup"?"Creating account…":"Logging in…",socialAuthMode==="signup"?"Create account":"Log in");
+ try{
+  if(socialAuthMode==="signup"){
+   const existing=await getDocs(query(usersRef,where("username","==",username),limit(1)));
+   if(!existing.empty)throw new Error("This username is already taken.");
+   const credential=await createUserWithEmailAndPassword(auth,email,password);
+   const profile={uid:credential.user.uid,username,displayName:name||username,bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
+   await updateProfile(credential.user,{displayName:name||username});
+   await setDoc(doc(db,"users",credential.user.uid),profile);
+   socialProfile=profile;
+  }else await signInWithEmailAndPassword(auth,email,password);
+  const modal=$("social-auth-modal"),card=modal?.querySelector(".social-auth-card");
+  showMessage($("social-auth-message"),socialAuthMode==="signup"?"Account created successfully!":"Login successful!",true);
+  card?.classList.add("auth-success");
+  await new Promise(resolve=>setTimeout(resolve,700));
+  card?.classList.remove("auth-success");
+  modal.hidden=true;$("social-auth-form").reset();viewedProfile=null;setActiveAppView("profile-view");
+ }catch(error){
+  console.error("Social authentication:",error);
+  const message=error.code==="auth/email-already-in-use"?"This email already has an account. Please log in.":error.message||"Could not sign in.";
+  showMessage($("social-auth-message"),message);
+ }finally{setButtonBusy(submit,false,null,socialAuthMode==="signup"?"Create account":"Log in");}
 });
 async function loadSocialProfile(user){
   try{
