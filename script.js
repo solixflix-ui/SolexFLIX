@@ -109,6 +109,24 @@ let activeScreenshots = [];
 let activeScreenshotIndex = 0;
 
 
+// Remove ChatGPT's optional tracking tag from the visible address bar while
+// preserving the movie ID and any other legitimate query parameters.
+(function removeChatGPTTrackingParameter() {
+  try {
+    const cleanUrl = new URL(window.location.href);
+    if (cleanUrl.searchParams.get("utm_source") === "chatgpt.com") {
+      cleanUrl.searchParams.delete("utm_source");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        cleanUrl.pathname + cleanUrl.search + cleanUrl.hash
+      );
+    }
+  } catch (error) {
+    console.warn("Could not clean optional tracking parameter:", error);
+  }
+})();
+
 /* =========================================
    5. HELPER FUNCTIONS
 ========================================= */
