@@ -1385,13 +1385,22 @@ function safeVideoUrl(value = "") {
   } catch { return ""; }
 }
 
+function getLikedReels() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("solexflix_liked_reels") || "[]");
+    return Array.isArray(saved) ? saved.filter(id => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 function reelMarkup(reel) {
   const src = safeVideoUrl(reel.videoUrl || reel.video || reel.url || "");
   if (!src) return "";
   const id = escapeHTML(reel.id);
   const caption = escapeHTML(reel.caption || reel.description || "A little laugh for your day");
   const creator = escapeHTML(reel.creator || reel.username || "SolexFLIX");
-  const liked = (JSON.parse(localStorage.getItem("solexflix_liked_reels") || "[]")).includes(reel.id);
+  const liked = getLikedReels().includes(reel.id);
   const likes = Math.max(0, Number(reel.likes || 0)) + (liked ? 1 : 0);
   return `
     <article class="reel-card" data-reel-id="${id}">
@@ -1424,7 +1433,12 @@ function setupReelPlayback() {
     }
   });
   if (!("IntersectionObserver" in window)) {
-    cards.forEach(card => { const v=card.querySelector("video"); v?.play().catch(()=>{}); });
+    cards.forEach((card, index) => {
+      const video = card.querySelector("video");
+      if (!video) return;
+      if (index === 0) video.play().catch(() => {});
+      else video.pause();
+    });
     return;
   }
   reelsObserver = new IntersectionObserver(entries => {
@@ -1479,7 +1493,7 @@ $("reels-container")?.addEventListener("click", async event => {
     if (!video.paused) video.play().catch(()=>{});
   }
   if (action === "like" && id) {
-    const liked = JSON.parse(localStorage.getItem("solexflix_liked_reels") || "[]");
+    const liked = getLikedReels();
     const next = liked.includes(id) ? liked.filter(x => x !== id) : [...liked, id];
     localStorage.setItem("solexflix_liked_reels", JSON.stringify(next));
     button.classList.toggle("is-liked", next.includes(id));
