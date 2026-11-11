@@ -1502,7 +1502,10 @@ async function loadReels() {
   const container = $("reels-container");
   if (!container) return;
   try {
-    const snap = await getDocs(videosRef);
+    const reelQuery = currentUser && isAdmin
+      ? videosRef
+      : query(videosRef, where("status", "==", "published"));
+    const snap = await getDocs(reelQuery);
     likedReelIds = new Set();
     if(currentUser&&!isAdmin){
       const likesSnap=await getDocs(query(collection(db,"reelLikes"),where("uid","==",currentUser.uid),limit(500)));
@@ -2145,8 +2148,9 @@ async function openDirectMessage(username){
     activeConversationUser=target;
     setActiveAppView("messages-view");
     document.querySelectorAll(".conversation-item").forEach(item=>item.classList.toggle("active",item.dataset.chatUser===target.username));
+    $("inbox-layout")?.classList.add("chat-open");
     $("chat-panel").innerHTML='<div class="chat-header"><button type="button" id="chat-back-btn" class="chat-back-btn">←</button><span class="mini-avatar">'+escapeHTML((target.username||"S").charAt(0).toUpperCase())+'</span><b>@'+escapeHTML(target.username)+'</b></div><div class="chat-messages" id="chat-messages"></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" maxlength="2000" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
-    $("chat-back-btn")?.addEventListener("click",()=>{document.querySelectorAll(".conversation-item").forEach(item=>item.classList.remove("active"));});
+    $("chat-back-btn")?.addEventListener("click",()=>{$("inbox-layout")?.classList.remove("chat-open");document.querySelectorAll(".conversation-item").forEach(item=>item.classList.remove("active"));});
     const participants=[currentUser.uid,target.uid].sort();
     const threadId=participants.join("_");
     await setDoc(doc(db,"acceptedChats",currentUser.uid+"_"+threadId),{uid:currentUser.uid,threadId,acceptedAt:serverTimestamp()},{merge:true});
