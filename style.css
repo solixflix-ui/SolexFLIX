@@ -1905,3 +1905,16 @@ body[data-active-view="profile-view"] #profile-view{display:block}
 .profile-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
 #profile-photo-btn{position:absolute;right:-2px;bottom:0;width:24px;height:24px;border-radius:50%;border:2px solid #101319;background:#e50914;color:#fff;font-size:16px;line-height:1}
 @media(max-width:600px){.profile-avatar-wrap{flex-basis:68px}.profile-avatar-wrap .profile-avatar{width:68px;height:68px}}
+
+
+.inbox-filter{border:0;background:none;color:#8f96a3;font-size:11px;padding:6px 10px;border-radius:7px}
+.inbox-filter.active{background:#252a34;color:#fff}
+.conversation-row{display:flex;align-items:center;gap:4px}
+.conversation-row .conversation-item{flex:1;min-width:0}
+.accept-request{border:0;background:#e50914;color:#fff;border-radius:7px;padding:6px 8px;font-size:9px}
+.chat-back-btn{border:0;background:none;color:#fff;font-size:18px;padding:3px 8px}
+@media(max-width:600px){
+ .inbox-list:has(.conversation-item.active) + .chat-panel{display:flex;min-height:340px}
+ .inbox-list:has(.conversation-item.active){display:none}
+ .inbox-layout:has(.conversation-item.active) .chat-panel{display:flex}
+}
