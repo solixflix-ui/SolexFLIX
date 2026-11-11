@@ -1918,3 +1918,6 @@ body[data-active-view="profile-view"] #profile-view{display:block}
  .inbox-list:has(.conversation-item.active){display:none}
  .inbox-layout:has(.conversation-item.active) .chat-panel{display:flex}
 }
+
+
+body[data-app-overlay] .bottom-nav,body[data-app-overlay] .app-topbar{display:none!important}
