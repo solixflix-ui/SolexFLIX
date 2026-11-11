@@ -668,11 +668,11 @@ function loadMovieDetailsAd() {
 }
 
 function openMovieDetails(id, addHistoryEntry = true) {
-  document.body.dataset.appOverlay="details";
   const movie = movies.find((item) => item.id === id);
 
   if (!movie) return;
-currentMovieId = id;
+  document.body.dataset.appOverlay="details";
+  currentMovieId = id;
 
   // Keep movie details in browser history so Android/browser Back works.
   if (addHistoryEntry) {
