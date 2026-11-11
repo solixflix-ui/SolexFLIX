@@ -5,7 +5,7 @@
 ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 import {
   getAuth,
@@ -1700,19 +1700,9 @@ document.querySelectorAll("[data-reel-feed]").forEach(btn=>btn.addEventListener(
   await loadReels();
 }));
 $("search-toggle")?.addEventListener("click",()=>setActiveAppView("search-view"));
-function startCreateReel(){
-  if(!currentUser||isAdmin){openSocialAuth("signup");return;}
-  viewedProfile=null;
-  setActiveAppView("profile-view");
-  setTimeout(()=>{
-    $("user-reel-form")?.scrollIntoView({behavior:"smooth",block:"center"});
-  },120);
-}
-$("reels-create-btn")?.addEventListener("click",startCreateReel);
-$("bottom-create-btn")?.addEventListener("click",()=>{
-  if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}
-  else startCreateReel();
-});
+function startCreateReel(){openCreateStudio("reel");}
+$("reels-create-btn")?.addEventListener("click",()=>openCreateStudio("reel"));
+$("bottom-create-btn")?.addEventListener("click",()=>{if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}else openCreateStudio("reel");});
 
 $("profile-settings-btn")?.addEventListener("click",()=>alert("Account settings: edit your profile or sign out from this page."));
 
@@ -1726,6 +1716,7 @@ const followsRef = collection(db,"follows");
 const storiesRef = collection(db,"stories");
 const messagesRef = collection(db,"messages");
 const commentsRef = collection(db,"comments");
+const photosRef = collection(db,"photos");
 const notificationsRef = collection(db,"notifications");
 const acceptedChatsRef = collection(db,"acceptedChats");
 let activeInboxFilter="primary";
@@ -1834,7 +1825,7 @@ async function loadSocialProfile(user){
       await setDoc(doc(db,"users",user.uid),fallback,{merge:true});
     }
   }catch(error){console.warn("Profile load failed",error);socialProfile={uid:user.uid,username:user.displayName||"creator",displayName:user.displayName||"Creator",bio:""};}
-  updateAccountControls();renderProfilePage();renderSocialSearch();loadInbox();loadOwnReels();
+  updateAccountControls();renderProfilePage();renderSocialSearch();loadInbox();loadOwnReels();loadOwnPhotos();
 }
 
 async function loadOwnReels(){
@@ -1847,6 +1838,25 @@ async function loadOwnReels(){
     if($("profile-post-count"))$("profile-post-count").textContent=String(own.length);
   }catch(err){console.warn("Own Reels:",err);}
 }
+async function loadOwnPhotos(){
+ if(!currentUser||isAdmin)return;
+ try{
+  const snap=await getDocs(query(photosRef,where("creatorUid","==",currentUser.uid),limit(60)));
+  const rows=snap.docs.map(d=>({id:d.id,...d.data()}));window.__solexOwnPhotos=rows;
+  const grid=$("profile-content-grid");if(grid&&grid.dataset.profileTab==="photos")renderOwnPhotos(rows);
+ }catch(err){console.warn("Photos:",err);}
+}
+function renderOwnPhotos(rows=window.__solexOwnPhotos||[]){
+ const grid=$("profile-content-grid");if(!grid)return;
+ grid.innerHTML=rows.length?rows.map(p=>'<article class="profile-photo-tile"><img src="'+escapeHTML(p.mediaUrl||"")+'" alt="'+escapeHTML(p.caption||"Photo")+'"><p>'+escapeHTML(p.caption||"")+'</p></article>').join(""):'<div class="empty-state">Your photos will appear here.</div>';
+}
+document.querySelectorAll("[data-profile-tab]").forEach(b=>b.addEventListener("click",()=>{
+ document.querySelectorAll("[data-profile-tab]").forEach(x=>x.classList.toggle("active",x===b));
+ const grid=$("profile-content-grid");if(grid)grid.dataset.profileTab=b.dataset.profileTab;
+ if(b.dataset.profileTab==="photos")renderOwnPhotos();
+ else if(b.dataset.profileTab==="reels")loadOwnReels();
+ else if(grid)grid.innerHTML='<div class="empty-state">Your posts will appear here.</div>';
+}));
 function renderProfilePage(){
   const p=viewedProfile||socialProfile;
   const own=!!currentUser&&p?.uid===currentUser.uid;
@@ -1982,8 +1992,17 @@ async function uploadSocialMedia(file,folder,maxBytes){
   const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
   const path=folder+"/"+currentUser.uid+"/"+Date.now()+"_"+safeName;
   const target=storageRef(storage,path);
-  await uploadBytes(target,file,{contentType:file.type});
-  return await getDownloadURL(target);
+  return await new Promise((resolve,reject)=>{
+    const task=uploadBytesResumable(target,file,{contentType:file.type});
+    showUploadProgress("Uploading "+(folder==="reels"?"Reel":folder==="photos"?"Photo":"Story"),0);
+    task.on("state_changed",snapshot=>{
+      const pct=snapshot.totalBytes?100*snapshot.bytesTransferred/snapshot.totalBytes:0;
+      showUploadProgress("Uploading "+(folder==="reels"?"Reel":folder==="photos"?"Photo":"Story"),pct);
+    },error=>{hideUploadProgress();reject(error);},async()=>{
+      try{const url=await getDownloadURL(task.snapshot.ref);hideUploadProgress();resolve(url);}
+      catch(error){hideUploadProgress();reject(error);}
+    });
+  });
 }
 $("story-add-btn")?.addEventListener("click",()=>{
   if(!currentUser||isAdmin){openSocialAuth("signup");return;}
@@ -2011,22 +2030,57 @@ $("stories-list")?.addEventListener("click",e=>{
   else{$("story-viewer-video").pause();$("story-viewer-video").src="";$("story-viewer-image").src=url;}
   host.hidden=false;
 });
+function setCreateType(type){
+  const photo=type==="photo";
+  document.querySelectorAll("[data-create-type]").forEach(b=>b.classList.toggle("active",b.dataset.createType===type));
+  $("create-studio-title").textContent=photo?"New photo":"New reel";
+  $("create-media-label").textContent=photo?"Choose photo from phone":"Choose video from phone";
+  $("create-media-help").textContent=photo?"JPG, PNG or WebP · up to 25 MB":"MP4, WebM or MOV · up to 150 MB";
+  $("create-media-icon").textContent=photo?"▧":"＋";
+  $("user-reel-file").accept=photo?"image/jpeg,image/png,image/webp":"video/mp4,video/webm,video/quicktime";
+  $("user-reel-file").value="";$("create-media-preview").hidden=true;$("create-media-preview").innerHTML="";
+  $("create-publish-btn").textContent=photo?"Share photo":"Share Reel";
+  $("user-reel-caption").value="";$("user-reel-hashtags").value="";$("user-reel-tags").value="";
+  $("create-studio").dataset.type=type;
+}
+function openCreateStudio(type="reel"){
+  if(!currentUser||isAdmin){openSocialAuth("signup");return;}
+  setCreateType(type);$("create-studio").hidden=false;
+}
+function closeCreateStudio(){$("create-studio").hidden=true;$("create-media-preview").innerHTML="";}
+$("create-studio-close")?.addEventListener("click",closeCreateStudio);
+document.querySelectorAll("[data-create-type]").forEach(b=>b.addEventListener("click",()=>setCreateType(b.dataset.createType)));
+$("create-studio-share-top")?.addEventListener("click",()=>$("user-reel-form")?.requestSubmit());
+$("user-reel-file")?.addEventListener("change",e=>{
+  const f=e.target.files?.[0],p=$("create-media-preview");if(!f)return;
+  const u=URL.createObjectURL(f);
+  p.innerHTML=f.type.startsWith("image/")?'<img src="'+u+'" alt="Photo preview">':'<video src="'+u+'" controls playsinline></video>';
+  p.hidden=false;
+});
 $("user-reel-form")?.addEventListener("submit",async e=>{
   e.preventDefault();
   if(!currentUser||isAdmin){openSocialAuth("signup");return;}
-  const submit=$("user-reel-form").querySelector('button[type="submit"]');submit.disabled=true;submit.textContent="Uploading…";
+  const photo=$("create-studio").dataset.type==="photo",file=$("user-reel-file").files?.[0],caption=$("user-reel-caption").value.trim(),btn=$("create-publish-btn");
+  setButtonBusy(btn,true,"Preparing…",photo?"Share photo":"Share Reel");
   try{
-    const file=$("user-reel-file")?.files?.[0];
-    let videoUrl=$("user-reel-url").value.trim();
-    if(file)videoUrl=await uploadSocialMedia(file,"reels",150*1024*1024);
-    if(!videoUrl)throw new Error("Choose a video or paste its direct URL.");
-    const u=new URL(videoUrl);
-    if(!["http:","https:"].includes(u.protocol))throw new Error("Invalid video URL.");
-    await addDoc(videosRef,{videoUrl:u.href,caption:$("user-reel-caption").value.trim(),creator:socialProfile?.username||"creator",creatorUid:currentUser.uid,likes:0,createdAt:serverTimestamp(),status:"published"});
-    $("user-reel-form").reset();await loadReels();await loadOwnReels();renderProfilePage();alert("Your Reel is published.");
-  }catch(err){alert("Reel publish failed: "+err.message);}
-  finally{submit.disabled=false;submit.textContent="Publish Reel";}
+    if(!file)throw new Error("Choose a "+(photo?"photo":"video")+" first.");
+    if(photo&&!file.type.startsWith("image/"))throw new Error("Select an image file.");
+    if(!photo&&!file.type.startsWith("video/"))throw new Error("Select a video file.");
+    const url=await uploadSocialMedia(file,photo?"photos":"reels",photo?25*1024*1024:150*1024*1024);
+    const tags=$("user-reel-tags").value.split(/[ ,]+/).map(x=>x.trim().replace(/^@/,"").toLowerCase()).filter(Boolean).slice(0,20);
+    const hashtags=$("user-reel-hashtags").value.split(/[ ,]+/).map(x=>x.trim().replace(/^#/,"").toLowerCase()).filter(Boolean).slice(0,30);
+    const post={mediaUrl:url,caption,hashtags,tags,creator:socialProfile?.username||"creator",creatorUid:currentUser.uid,createdAt:serverTimestamp(),status:"published"};
+    if(photo)await addDoc(photosRef,post);else await addDoc(videosRef,{...post,videoUrl:url,likes:0});
+    closeCreateStudio();$("user-reel-form").reset();
+    await loadReels();await loadOwnReels();await loadOwnPhotos();
+    showCreateToast(photo?"Photo shared successfully!":"Reel shared successfully!");
+  }catch(err){alert((photo?"Photo":"Reel")+" upload failed: "+err.message);}
+  finally{setButtonBusy(btn,false,null,photo?"Share photo":"Share Reel");hideUploadProgress();}
 });
+function showCreateToast(message){
+  let t=$("create-toast");if(!t){t=document.createElement("div");t.id="create-toast";t.className="create-toast";document.body.appendChild(t);}
+  t.textContent=message;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);
+}
 document.querySelectorAll("[data-close-viewer]").forEach(btn=>btn.addEventListener("click",()=>{
   const id=btn.dataset.closeViewer;const el=$(id);if(el)el.hidden=true;
   if(id==="story-viewer"){$("story-viewer-video").pause();$("story-viewer-video").src="";}
