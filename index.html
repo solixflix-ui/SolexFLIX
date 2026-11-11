@@ -202,18 +202,7 @@
       </div>
       <div class="profile-name"><strong id="profile-display-name">SolexFLIX Creator</strong><span id="profile-handle">@solexflix</span><p id="profile-bio">Movies, moments and people. Welcome to the SolexFLIX community.</p></div>
       <div class="profile-actions"><button id="profile-follow-btn" type="button" hidden>Follow</button><button id="share-profile-btn" type="button">Share profile</button><button id="profile-signout-btn" type="button" hidden>Sign out</button></div>
-      <div class="profile-content-tabs"><button class="profile-content-tab active" data-profile-tab="posts">▦ Posts</button><button class="profile-content-tab" data-profile-tab="reels">▶ Reels</button><button class="profile-content-tab" data-profile-tab="tagged">♙ Tagged</button></div>
-      <div class="profile-publish-tools" id="profile-publish-tools">
-        <h3>Create on SolexFLIX</h3>
-        <form id="user-reel-form" class="user-publish-form">
-          <label class="media-pick-label" for="user-reel-file">Choose video from phone</label>
-          <input id="user-reel-file" type="file" accept="video/mp4,video/webm,video/quicktime">
-          <input id="user-reel-url" type="url" placeholder="Or paste a direct MP4 / WebM URL">
-          <input id="user-reel-caption" type="text" maxlength="180" placeholder="Write a caption" required>
-          <button type="submit">Publish Reel</button>
-          <small>Only upload videos you own or have permission to share.</small>
-        </form>
-      </div>
+      <div class="profile-content-tabs"><button class="profile-content-tab active" data-profile-tab="posts">▦ Posts</button><button class="profile-content-tab" data-profile-tab="reels">▶ Reels</button><button class="profile-content-tab" data-profile-tab="photos">▧ Photos</button><button class="profile-content-tab" data-profile-tab="tagged">♙ Tagged</button></div>
       <div id="profile-content-grid" class="profile-grid"><div class="empty-state">Your posts and Reels will appear here.</div></div>
     </section>
 
@@ -248,7 +237,19 @@
     </div>
   </section>
 
-  <div id="story-viewer" class="media-viewer" hidden role="dialog" aria-modal="true">
+  <section id="create-studio" class="create-studio" hidden role="dialog" aria-modal="true" aria-labelledby="create-studio-title">
+<header class="create-studio-header"><button type="button" id="create-studio-close" aria-label="Back">←</button><h2 id="create-studio-title">New reel</h2><button type="button" id="create-studio-share-top">Share</button></header>
+<div class="create-type-tabs"><button type="button" class="create-type active" data-create-type="reel">Reel</button><button type="button" class="create-type" data-create-type="photo">Photo</button></div>
+<form id="user-reel-form" class="create-studio-form">
+<label class="create-media-picker" for="user-reel-file"><span id="create-media-icon">＋</span><b id="create-media-label">Choose video from phone</b><small id="create-media-help">MP4, WebM or MOV · up to 150 MB</small></label>
+<input id="user-reel-file" type="file" accept="video/mp4,video/webm,video/quicktime" required>
+<div id="create-media-preview" class="create-media-preview" hidden></div>
+<textarea id="user-reel-caption" maxlength="2200" placeholder="Write a caption…" required></textarea>
+<div class="create-field"><label for="user-reel-hashtags"># Hashtags</label><input id="user-reel-hashtags" placeholder="#funny #reels #solexflix"></div>
+<div class="create-field"><label for="user-reel-tags">@ Tag people</label><input id="user-reel-tags" placeholder="@username, @creator"></div>
+<p class="create-upload-note">Share only photos and videos you own or have permission to post.</p>
+<button type="submit" id="create-publish-btn" class="create-share-button">Share Reel</button>
+</form></section><div id="story-viewer" class="media-viewer" hidden role="dialog" aria-modal="true">
     <button type="button" class="media-viewer-close" data-close-viewer="story-viewer">×</button>
     <div class="media-viewer-user" id="story-viewer-user"></div>
     <img id="story-viewer-image" alt="Story" hidden>
