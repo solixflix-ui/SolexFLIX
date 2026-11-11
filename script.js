@@ -1992,6 +1992,7 @@ $("reel-comment-form")?.addEventListener("submit",async e=>{
   const submit=e.submitter; if(submit)submit.disabled=true;
   try{
     await addDoc(commentsRef,{reelId:activeCommentReelId,uid:currentUser.uid,username:socialProfile?.username||"creator",text:textValue.slice(0,500),createdAt:serverTimestamp()});
+    const targetReel=reels.find(r=>r.id===activeCommentReelId);await notifyUser(targetReel?.creatorUid,"comment","commented on your Reel",{reelId:activeCommentReelId});
     input.value="";await loadReelComments(activeCommentReelId);
   }catch(err){alert("Comment failed: "+err.message);}
   finally{if(submit)submit.disabled=false;}
