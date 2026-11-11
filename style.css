@@ -1854,3 +1854,18 @@ body{padding-bottom:68px!important}
  .user-publish-form{grid-template-columns:1fr}
  .user-publish-form input:first-child{grid-column:auto}
 }
+
+
+/* App-view switching: only the selected tab is visible */
+body[data-active-view="search-view"] #home-view,
+body[data-active-view="search-view"] #reels-feed,
+body[data-active-view="search-view"] #messages-view,
+body[data-active-view="search-view"] #profile-view{display:none!important}
+body[data-active-view="home-view"] #search-view{display:none!important}
+body[data-active-view="reels-feed"] #search-view{display:none!important}
+body[data-active-view="messages-view"] #search-view{display:none!important}
+body[data-active-view="profile-view"] #search-view{display:none!important}
+body[data-active-view="home-view"] #home-view{display:block}
+body[data-active-view="search-view"] #search-view{display:block}
+body[data-active-view="messages-view"] #messages-view{display:block}
+body[data-active-view="profile-view"] #profile-view{display:block}
