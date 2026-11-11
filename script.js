@@ -1854,7 +1854,7 @@ function renderOwnPhotos(rows=window.__solexOwnPhotos||[]){
 document.querySelectorAll("[data-profile-tab]").forEach(b=>b.addEventListener("click",()=>{
  document.querySelectorAll("[data-profile-tab]").forEach(x=>x.classList.toggle("active",x===b));
  const grid=$("profile-content-grid");if(grid)grid.dataset.profileTab=b.dataset.profileTab;
- if(b.dataset.profileTab==="photos")renderOwnPhotos();
+ if(b.dataset.profileTab==="photos")loadOwnPhotos();
  else if(b.dataset.profileTab==="reels")loadOwnReels();
  else if(grid)grid.innerHTML='<div class="empty-state">Your posts will appear here.</div>';
 }));
