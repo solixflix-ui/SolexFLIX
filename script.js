@@ -668,6 +668,7 @@ function loadMovieDetailsAd() {
 }
 
 function openMovieDetails(id, addHistoryEntry = true) {
+  document.body.dataset.appOverlay="details";
   const movie = movies.find((item) => item.id === id);
 
   if (!movie) return;
@@ -798,6 +799,7 @@ function hideMovieDetailsView() {
     playerContainer.hidden = true;
   }
   hideSection(detailsSection);
+  delete document.body.dataset.appOverlay;
   showSection(websiteSection);
   currentMovieId = null;
 
@@ -901,6 +903,7 @@ document.addEventListener("click", (event) => {
 ========================================= */
 
 function openAdminLogin() {
+  document.body.dataset.appOverlay="admin-login";
   hideSection(websiteSection);
   hideSection(detailsSection);
 
@@ -931,6 +934,7 @@ document.addEventListener("click", (event) => {
 if ($("close-admin-login")) {
   $("close-admin-login").addEventListener("click", () => {
     hideSection(loginSection);
+    delete document.body.dataset.appOverlay;
     showSection(websiteSection);
   });
 }
@@ -987,6 +991,7 @@ onAuthStateChanged(auth, async (user) => {
     hideSection(adminPanel);
     hideSection(loginSection);
     hideSection(detailsSection);
+    delete document.body.dataset.appOverlay;
     showSection(websiteSection);
   }
   updateAccountControls();
@@ -1004,6 +1009,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 function showAdminDashboard() {
+  document.body.dataset.appOverlay="admin";
   hideSection(websiteSection);
   hideSection(loginSection);
   hideSection(detailsSection);
@@ -1602,6 +1608,7 @@ $("reel-form")?.addEventListener("submit", async event => {
 function setActiveAppView(viewId) {
   const allowed = ["home-view", "search-view", "reels-feed", "messages-view", "profile-view"];
   if (!allowed.includes(viewId)) return;
+  delete document.body.dataset.appOverlay;
   document.body.dataset.activeView = viewId;
   document.querySelectorAll(".bottom-nav-btn").forEach((button) => {
     const active = button.dataset.view === viewId;
