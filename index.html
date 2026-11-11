@@ -52,21 +52,36 @@
 <body>
 
   <!-- NAVBAR -->
-  <header class="navbar">
-    <a href="#" class="logo">Solex<span>FLIX</span></a>
-
-    <nav class="nav-links">
-      <a href="#home">Home</a>
-      <a href="#trending">Trending</a>
-      <a href="#recent">Recent</a>
-      <button id="search-toggle" type="button">Search</button>
+  <header class="navbar app-topbar">
+    <a href="#" class="logo" id="brand-home">Solex<span>FLIX</span></a>
+    <div class="topbar-actions">
+      <button id="search-toggle" type="button" aria-label="Search" class="topbar-icon">⌕</button>
+      <button id="notifications-open" type="button" class="topbar-icon notification-trigger" aria-label="Notifications">♧<i id="notification-dot" hidden></i></button>
+      <button id="account-open" type="button" class="account-open">Sign in</button>
       <button id="admin-open" type="button" class="admin-btn">Admin</button>
-    </nav>
+    </div>
   </header>
 
   <!-- WEBSITE -->
   <main id="website-section">
 
+    <!-- SOLEXFLIX VERTICAL REELS FEED -->
+    <section id="reels-feed" class="reels-page" aria-label="Funny video feed">
+      <div class="reels-heading">
+        <button class="reels-plus" id="reels-create-btn" type="button" aria-label="Create a Reel">＋</button>
+        <div class="reels-tabs"><button class="reels-tab active" type="button" data-reel-feed="all">Reels</button><button class="reels-tab friends-tab" type="button" data-reel-feed="friends">Friends</button><span class="friends-stack" aria-hidden="true">● ● ●</span></div>
+      </div>
+      <div id="reels-container" class="reels-container">
+        <div class="reels-empty"><strong>Your funny feed is getting ready…</strong><p>Admin can publish the first reel from the dashboard.</p></div>
+      </div>
+    </section>
+
+    <div id="home-view" class="app-view home-view">
+    <section class="stories-strip" aria-label="Stories">
+      <button class="story-add" id="story-add-btn" type="button"><span class="story-ring own-story"><b>＋</b></span><small>Your story</small></button>
+      <input id="story-file-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" hidden>
+      <div id="stories-list" class="stories-list"><div class="stories-loading">Stories from creators</div></div>
+    </section>
     <!-- HERO -->
     <section class="hero" id="home">
       <div class="hero-content">
@@ -161,8 +176,120 @@
       <div id="movie-pagination" class="movie-pagination" aria-label="Movie pages"></div>
       <p id="empty-message" hidden>No movies available yet.</p>
     </section>
+    </div>
+
+    <section id="search-view" class="app-view social-view">
+      <div class="social-topline"><h1>Discover</h1><button class="small-action" id="discover-filter-btn" type="button">Filters</button></div>
+      <div class="social-search"><span>⌕</span><input id="social-search-input" type="search" placeholder="Search accounts, creators, Reels..." autocomplete="off"></div>
+      <div class="search-tabs"><button class="search-tab active" data-search-kind="all">For you</button><button class="search-tab" data-search-kind="accounts">Accounts</button><button class="search-tab" data-search-kind="reels">Reels</button><button class="search-tab" data-search-kind="tags">Tags</button></div>
+      <div id="social-search-results" class="social-results"><p class="muted-note">Search for creators, usernames and videos.</p></div>
+    </section>
+
+    <section id="messages-view" class="app-view social-view">
+      <div class="social-topline"><div><h1>Messages</h1><small class="muted-note">Your conversations</small></div><button class="small-action" id="new-message-btn" type="button">＋ New</button></div>
+      <div class="social-search compact-search"><span>⌕</span><input id="message-search-input" type="search" placeholder="Search messages"></div>
+      <div class="inbox-layout" id="inbox-layout">
+        <aside class="inbox-list"><div class="inbox-heading"><button type="button" class="inbox-filter active" data-inbox-filter="primary">Primary</button><button type="button" class="inbox-filter" data-inbox-filter="requests">Requests</button></div><div id="conversation-list"><div class="empty-state">Sign in to see your messages.</div></div></aside>
+        <section class="chat-panel" id="chat-panel"><div class="chat-empty"><div class="chat-empty-icon">✉</div><h2>Your messages</h2><p>Choose a conversation or start a new chat.</p><button id="start-chat-btn" class="primary-btn compact-btn" type="button">Send message</button></div></section>
+      </div>
+    </section>
+
+    <section id="profile-view" class="app-view social-view">
+      <div class="profile-topbar"><h1>Profile</h1><div><button id="edit-profile-btn" class="small-action" type="button">Edit profile</button><button id="profile-message-btn" class="small-action" type="button" hidden>Message</button><button id="profile-settings-btn" class="small-action" type="button" aria-label="Settings">⚙</button></div></div>
+      <div class="profile-summary">
+        <div class="profile-avatar-wrap"><div class="profile-avatar" id="profile-avatar">S</div><button id="profile-photo-btn" type="button" hidden aria-label="Change profile photo">＋</button><input id="profile-photo-input" type="file" accept="image/*" hidden></div>
+        <div class="profile-numbers"><div><strong id="profile-post-count">0</strong><span>Posts</span></div><div><strong id="profile-follower-count">0</strong><button type="button" data-profile-relation="followers">Followers</button></div><div><strong id="profile-following-count">0</strong><button type="button" data-profile-relation="following">Following</button></div></div>
+      </div>
+      <div class="profile-name"><strong id="profile-display-name">SolexFLIX Creator</strong><span id="profile-handle">@solexflix</span><p id="profile-bio">Movies, moments and people. Welcome to the SolexFLIX community.</p></div>
+      <div class="profile-actions"><button id="profile-follow-btn" type="button" hidden>Follow</button><button id="share-profile-btn" type="button">Share profile</button><button id="profile-signout-btn" type="button" hidden>Sign out</button></div>
+      <div class="profile-content-tabs"><button class="profile-content-tab active" data-profile-tab="posts">▦ Posts</button><button class="profile-content-tab" data-profile-tab="reels">▶ Reels</button><button class="profile-content-tab" data-profile-tab="photos">▧ Photos</button><button class="profile-content-tab" data-profile-tab="tagged">♙ Tagged</button></div>
+      <div id="profile-content-grid" class="profile-grid"><div class="empty-state">Your posts and Reels will appear here.</div></div>
+    </section>
 
   </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button type="button" class="bottom-nav-btn active" data-view="home-view" aria-label="Home"><span class="nav-icon">⌂</span><small>Home</small></button>
+    <button type="button" class="bottom-nav-btn" data-view="search-view" aria-label="Search"><span class="nav-icon">⌕</span><small>Search</small></button>
+    <button type="button" class="bottom-nav-btn create-nav-btn" id="bottom-create-btn" aria-label="Create"><span class="nav-icon">＋</span><small>Create</small></button>
+    <button type="button" class="bottom-nav-btn" data-view="reels-feed" aria-label="Reels"><span class="nav-icon reels-nav-icon">▶</span><small>Reels</small></button>
+    <button type="button" class="bottom-nav-btn" data-view="messages-view" aria-label="Inbox"><span class="nav-icon">✉</span><small>Inbox</small><i class="nav-unread-dot" hidden></i></button>
+    <button type="button" class="bottom-nav-btn" data-view="profile-view" aria-label="Profile"><span class="nav-icon profile-nav-icon">●</span><small>Profile</small></button>
+  </nav>
+
+  <!-- USER ACCOUNT AUTH -->
+  <section id="social-auth-modal" class="social-auth-modal" hidden aria-modal="true" role="dialog" aria-labelledby="social-auth-title">
+    <div class="social-auth-card">
+      <button type="button" id="close-social-auth" class="auth-close" aria-label="Close">×</button>
+      <div class="auth-brand">Solex<span>FLIX</span></div>
+      <h2 id="social-auth-title">Join the community</h2>
+      <p>Follow creators, share Reels and message people.</p>
+      <div class="auth-switch"><button type="button" class="auth-mode active" data-auth-mode="login">Log in</button><button type="button" class="auth-mode" data-auth-mode="signup">Create account</button></div>
+      <form id="social-auth-form">
+        <input id="social-auth-name" type="text" placeholder="Display name" maxlength="40" autocomplete="name" hidden>
+        <input id="social-auth-username" type="text" placeholder="Username" maxlength="24" autocomplete="username" hidden>
+        <input id="social-auth-email" type="email" placeholder="Email address" autocomplete="email" required>
+        <input id="social-auth-password" type="password" placeholder="Password (at least 6 characters)" autocomplete="current-password" minlength="6" required>
+        <button class="primary-btn" type="submit" id="social-auth-submit">Log in</button>
+        <p id="social-auth-message" class="auth-message" aria-live="polite"></p>
+      </form>
+      <small class="auth-terms">Use a real email address. Keep your password private.</small>
+    </div>
+  </section>
+
+  <section id="create-studio" class="create-studio" hidden role="dialog" aria-modal="true" aria-labelledby="create-studio-title">
+<header class="create-studio-header"><button type="button" id="create-studio-close" aria-label="Back">←</button><h2 id="create-studio-title">New reel</h2><button type="button" id="create-studio-share-top">Share</button></header>
+<div class="create-type-tabs"><button type="button" class="create-type active" data-create-type="reel">Reel</button><button type="button" class="create-type" data-create-type="photo">Photo</button></div>
+<form id="user-reel-form" class="create-studio-form">
+<label class="create-media-picker" for="user-reel-file"><span id="create-media-icon">＋</span><b id="create-media-label">Choose video from phone</b><small id="create-media-help">MP4, WebM or MOV · up to 150 MB</small></label>
+<input id="user-reel-file" type="file" accept="video/mp4,video/webm,video/quicktime" required>
+<div id="create-media-preview" class="create-media-preview" hidden></div>
+<textarea id="user-reel-caption" maxlength="2200" placeholder="Write a caption…" required></textarea>
+<div class="create-field"><label for="user-reel-hashtags"># Hashtags</label><input id="user-reel-hashtags" placeholder="#funny #reels #solexflix"></div>
+<div class="create-field"><label for="user-reel-tags">@ Tag people</label><input id="user-reel-tags" placeholder="@username, @creator"></div>
+<p class="create-upload-note">Share only photos and videos you own or have permission to post.</p>
+<button type="submit" id="create-publish-btn" class="create-share-button">Share Reel</button>
+</form></section><div id="story-viewer" class="media-viewer" hidden role="dialog" aria-modal="true">
+    <button type="button" class="media-viewer-close" data-close-viewer="story-viewer">×</button>
+    <div class="media-viewer-user" id="story-viewer-user"></div>
+    <img id="story-viewer-image" alt="Story" hidden>
+    <video id="story-viewer-video" controls playsinline hidden></video>
+  </div>
+  <div id="notifications-modal" class="social-auth-modal" hidden role="dialog" aria-modal="true" aria-labelledby="notifications-title">
+    <div class="comments-card">
+      <button type="button" class="auth-close" data-close-viewer="notifications-modal" aria-label="Close">×</button>
+      <h2 id="notifications-title">Activity</h2>
+      <div id="notifications-list" class="reel-comments-list"></div>
+    </div>
+  </div>
+  <div id="relations-modal" class="social-auth-modal" hidden role="dialog" aria-modal="true" aria-labelledby="relations-title">
+    <div class="comments-card">
+      <button type="button" class="auth-close" data-close-viewer="relations-modal" aria-label="Close">×</button>
+      <h2 id="relations-title">Followers</h2>
+      <div id="relations-list" class="reel-comments-list"></div>
+    </div>
+  </div>
+  <div id="comments-modal" class="social-auth-modal" hidden role="dialog" aria-modal="true" aria-labelledby="comments-title">
+    <div class="comments-card">
+      <button type="button" class="auth-close" data-close-viewer="comments-modal" aria-label="Close">×</button>
+      <h2 id="comments-title">Comments</h2>
+      <div id="reel-comments-list" class="reel-comments-list"></div>
+      <form id="reel-comment-form" class="chat-compose"><input id="reel-comment-input" maxlength="500" placeholder="Add a comment..." required><button type="submit">➤</button></form>
+    </div>
+  </div>
+
+  <div id="call-modal" class="call-modal" hidden role="dialog" aria-modal="true" aria-label="Call">
+    <div class="call-card">
+      <div id="call-status">Connecting…</div>
+      <video id="remote-call-video" autoplay playsinline></video>
+      <video id="local-call-video" autoplay muted playsinline></video>
+      <div class="call-actions">
+        <button id="call-mute-btn" type="button">Mute</button>
+        <button id="call-camera-btn" type="button">Camera off</button>
+        <button id="call-end-btn" type="button">End call</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MOVIE DETAILS -->
   <section id="details-section" hidden>
@@ -269,6 +396,15 @@
 
     <!-- ADD / EDIT MOVIE -->
     <div class="admin-box">
+      <h2>Publish a Reel</h2>
+      <form id="reel-form" class="reel-admin-form">
+        <input id="reel-video-url" type="url" placeholder="Direct MP4 / WebM video URL" required>
+        <input id="reel-caption" type="text" maxlength="180" placeholder="Funny caption" required>
+        <input id="reel-creator" type="text" maxlength="40" placeholder="Creator name / @username" value="SolexFLIX">
+        <button class="primary-btn" type="submit">Publish Reel</button>
+        <p id="reel-message" class="admin-help">Use a direct video URL that you own or have permission to publish. Video hosting is external in this version.</p>
+      </form>
+
       <h2 id="form-heading">Add New Movie</h2>
 
       <form id="movie-form">

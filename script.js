@@ -5,10 +5,13 @@
 ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 import {
   getAuth,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -21,6 +24,14 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  setDoc,
+  getDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  increment,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -43,6 +54,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 const db = getFirestore(app, "default");
+const storage = getStorage(app);
 
 const moviesRef = collection(db, "movies");
 
@@ -68,6 +80,20 @@ let currentUser = null;
 let isAdmin = false;
 let movies = [];
 let editingMovieId = null;
+let socialAuthMode = "login";
+let activeChatUnsubscribe = null;
+let activeConversationUser = null;
+let socialProfile = null;
+let viewedProfile = null;
+let activeCommentReelId = null;
+let activeCall = null;
+let activeCallUnsubs = [];
+let localCallStream = null;
+let remoteCallStream = null;
+let callPeer = null;
+let currentCallId = null;
+let callKind = "audio";
+
 
 
 /* =========================================
@@ -141,6 +167,17 @@ function escapeHTML(value = "") {
   })[char]);
 }
 
+function setButtonBusy(button,busy,label,idleLabel){
+ if(!button)return;
+ if(busy){button.dataset.idleLabel=idleLabel||button.textContent;button.disabled=true;button.classList.add("is-loading");button.setAttribute("aria-busy","true");button.innerHTML='<span class="button-spinner" aria-hidden="true"></span>'+escapeHTML(label||"Please wait…");}
+ else{button.disabled=false;button.classList.remove("is-loading");button.setAttribute("aria-busy","false");button.textContent=idleLabel||button.dataset.idleLabel||button.textContent;}
+}
+function showUploadProgress(label,percent){
+ let box=$("social-upload-progress");
+ if(!box){box=document.createElement("div");box.id="social-upload-progress";box.className="social-upload-progress";box.setAttribute("role","status");document.body.appendChild(box);}
+ box.hidden=false;box.innerHTML='<span>'+escapeHTML(label)+'</span><strong>'+Math.round(percent)+'%</strong><div class="upload-progress-track"><i style="width:'+Math.max(0,Math.min(100,percent))+'%"></i></div>';
+}
+function hideUploadProgress(){const box=$("social-upload-progress");if(box)box.hidden=true;}
 function showMessage(element, message, success = false) {
   if (!element) return;
 
@@ -653,7 +690,8 @@ function openMovieDetails(id, addHistoryEntry = true) {
   const movie = movies.find((item) => item.id === id);
 
   if (!movie) return;
-currentMovieId = id;
+  document.body.dataset.appOverlay="details";
+  currentMovieId = id;
 
   // Keep movie details in browser history so Android/browser Back works.
   if (addHistoryEntry) {
@@ -780,6 +818,7 @@ function hideMovieDetailsView() {
     playerContainer.hidden = true;
   }
   hideSection(detailsSection);
+  delete document.body.dataset.appOverlay;
   showSection(websiteSection);
   currentMovieId = null;
 
@@ -883,6 +922,7 @@ document.addEventListener("click", (event) => {
 ========================================= */
 
 function openAdminLogin() {
+  document.body.dataset.appOverlay="admin-login";
   hideSection(websiteSection);
   hideSection(detailsSection);
 
@@ -913,6 +953,7 @@ document.addEventListener("click", (event) => {
 if ($("close-admin-login")) {
   $("close-admin-login").addEventListener("click", () => {
     hideSection(loginSection);
+    delete document.body.dataset.appOverlay;
     showSection(websiteSection);
   });
 }
@@ -963,22 +1004,38 @@ onAuthStateChanged(auth, async (user) => {
   isAdmin = !!user &&
     user.email?.toLowerCase() === ADMIN_EMAIL;
 
-  if (user && !isAdmin) {
-    await signOut(auth);
-    return;
-  }
-
   if (isAdmin) {
     showAdminDashboard();
   } else {
     hideSection(adminPanel);
     hideSection(loginSection);
     hideSection(detailsSection);
+    delete document.body.dataset.appOverlay;
     showSection(websiteSection);
+  }
+  updateAccountControls();
+  if (user && !isAdmin) {
+    await loadSocialProfile(user);
+    subscribeStories();
+    subscribeNotifications();
+    subscribeIncomingCalls();
+  } else {
+    if(storyUnsubscribe)storyUnsubscribe();
+    if(notificationUnsubscribe)notificationUnsubscribe();
+    if(inboxUnsubscribe)inboxUnsubscribe();
+    if(acceptedInboxUnsubscribe)acceptedInboxUnsubscribe();
+    if(activeChatUnsubscribe)activeChatUnsubscribe();
+    inboxUnsubscribe=null;acceptedInboxUnsubscribe=null;activeChatUnsubscribe=null;
+    inboxCache=[];inboxRows=[];acceptedThreadIds=new Set();
+    subscribeStories();
+    socialProfile = null;
+    viewedProfile = null;
+    renderProfilePage();
   }
 });
 
 function showAdminDashboard() {
+  document.body.dataset.appOverlay="admin";
   hideSection(websiteSection);
   hideSection(loginSection);
   hideSection(detailsSection);
@@ -1368,8 +1425,935 @@ if ($("logout-btn")) {
 }
 
 
+
+
+// =========================================
+// SOLEXFLIX REELS FEED
+// Reels are read from Firestore collection "videos".
+// Video files must be hosted at an authorized direct URL.
+const videosRef = collection(db, "videos");
+let reels = [];
+let activeReelFilter = "all";
+let likedReelIds = new Set();
+let reelsObserver = null;
+// Keep the existing Adsterra homepage slot and mount it inside the Reels feed.
+const homepageAdSlot = $("website-section")?.querySelector(".ad-slot-home") || document.querySelector(".ad-slot-home");
+
+function safeVideoUrl(value = "") {
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+  } catch { return ""; }
+}
+
+function getLikedReels() {
+  try {
+    return Array.from(likedReelIds);
+  } catch {
+    return [];
+  }
+}
+
+function reelMarkup(reel) {
+  const src = safeVideoUrl(reel.videoUrl || reel.video || reel.url || "");
+  if (!src) return "";
+  const id = escapeHTML(reel.id);
+  const caption = escapeHTML(reel.caption || reel.description || "A little laugh for your day");
+  const creator = escapeHTML(reel.creator || reel.username || "SolexFLIX");
+  const liked = likedReelIds.has(reel.id);
+  const likes = Math.max(0, Number(reel.likes || 0));
+  return `
+    <article class="reel-card" data-reel-id="${id}">
+      <video class="reel-video" src="${escapeHTML(src)}" playsinline loop muted preload="metadata"></video>
+      <div class="reel-shade"></div>
+      <button class="reel-sound" type="button" data-reel-action="sound" aria-label="Toggle sound">🔇</button>
+      <div class="reel-details">
+        <div class="reel-creator">@${creator.replace(/^@/,"")}</div>
+        <p>${caption}</p>
+        <span class="reel-audio">♫ Original audio · SolexFLIX</span>
+      </div>
+      <div class="reel-actions">
+        <button type="button" data-reel-action="like" class="${liked ? "is-liked" : ""}"><span>♥</span><small>${likes}</small></button>
+        <button type="button" data-reel-action="comment"><span>●</span><small>Comment</small></button>
+        <button type="button" data-reel-action="share"><span>↗</span><small>Share</small></button>
+      </div>
+      <button class="reel-play-toggle" type="button" data-reel-action="play" aria-label="Play or pause">▶</button>
+    </article>`;
+}
+
+function setupReelPlayback() {
+  if (reelsObserver) reelsObserver.disconnect();
+  const cards = document.querySelectorAll(".reel-card");
+  cards.forEach(card => {
+    const video = card.querySelector("video");
+    if (video && !video.dataset.reelStateBound) {
+      video.dataset.reelStateBound = "1";
+      video.addEventListener("play", () => card.classList.remove("is-paused"));
+      video.addEventListener("pause", () => card.classList.add("is-paused"));
+    }
+  });
+  if (!("IntersectionObserver" in window)) {
+    cards.forEach((card, index) => {
+      const video = card.querySelector("video");
+      if (!video) return;
+      if (index === 0) video.play().catch(() => {});
+      else video.pause();
+    });
+    return;
+  }
+  reelsObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const video = entry.target.querySelector("video");
+      if (!video) return;
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+        document.querySelectorAll(".reel-video").forEach(other => {
+          if (other !== video) { other.pause(); other.muted = true; }
+        });
+        video.play().catch(()=>{});
+      } else {
+        video.pause();
+      }
+    });
+  }, { threshold: [0, 0.7, 1] });
+  cards.forEach(card => reelsObserver.observe(card));
+}
+
+async function loadReels() {
+  const container = $("reels-container");
+  if (!container) return;
+  try {
+    const reelQuery = currentUser && isAdmin
+      ? videosRef
+      : query(videosRef, where("status", "==", "published"));
+    const snap = await getDocs(reelQuery);
+    likedReelIds = new Set();
+    if(currentUser&&!isAdmin){
+      const likesSnap=await getDocs(query(collection(db,"reelLikes"),where("uid","==",currentUser.uid),limit(500)));
+      likesSnap.docs.forEach(d=>{const id=d.data().reelId;if(id)likedReelIds.add(id);});
+    }
+    reels = snap.docs.map(d => ({ id:d.id, ...d.data() }))
+      .filter(r => safeVideoUrl(r.videoUrl || r.video || r.url))
+      .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    let visibleReels=reels;
+    if(activeReelFilter==="friends" && currentUser && !isAdmin){
+      const followingSnap=await getDocs(query(followsRef,where("followerUid","==",currentUser.uid),limit(500)));
+      const followed=new Set(followingSnap.docs.map(d=>d.data().followingUid));
+      visibleReels=reels.filter(r=>followed.has(r.creatorUid));
+    }
+    container.innerHTML = visibleReels.length
+      ? visibleReels.map(reelMarkup).join("")
+      : '<div class="reels-empty"><strong>No reels yet</strong><p>Admin dashboard se pehla funny video publish karo.</p></div>';
+    setupReelPlayback();
+  } catch (error) {
+    console.error("Reels load error:", error);
+    container.innerHTML = '<div class="reels-empty"><strong>Reels load nahi ho paaye</strong><p>Firestore "videos" collection permissions check karein.</p></div>';
+  }
+}
+
+$("reels-container")?.addEventListener("click", async event => {
+  const button = event.target.closest("[data-reel-action]");
+  if (!button) return;
+  const card = button.closest(".reel-card");
+  const video = card?.querySelector("video");
+  const action = button.dataset.reelAction;
+  const id = card?.dataset.reelId;
+  const reel = reels.find(r => r.id === id);
+  if (action === "play" && video) {
+    if (video.paused) video.play().catch(()=>{}); else video.pause();
+  }
+  if (action === "sound" && video) {
+    video.muted = !video.muted;
+    button.textContent = video.muted ? "🔇" : "🔊";
+    if (!video.paused) video.play().catch(()=>{});
+  }
+  if (action === "like" && id) {
+    if(!currentUser||isAdmin){openSocialAuth("login");return;}
+    const likeRef=doc(db,"reelLikes",id+"_"+currentUser.uid);
+    try{
+      const existing=await getDoc(likeRef);
+      if(existing.exists()){
+        await deleteDoc(likeRef);
+        await updateDoc(doc(db,"videos",id),{likes:increment(-1)});
+        likedReelIds.delete(id);
+        button.classList.remove("is-liked");
+      }else{
+        await setDoc(likeRef,{uid:currentUser.uid,reelId:id,createdAt:serverTimestamp()});
+        await updateDoc(doc(db,"videos",id),{likes:increment(1)});
+        await notifyUser(reel?.creatorUid,"like","liked your Reel",{reelId:id});
+        likedReelIds.add(id);
+        button.classList.add("is-liked");
+      }
+      const updated=await getDoc(doc(db,"videos",id));
+      const n=Math.max(0,Number(updated.data()?.likes||0));
+      button.querySelector("small").textContent=n;
+      reel.likes=n;
+    }catch(err){alert("Like could not be saved: "+err.message);}
+  }
+  if (action === "comment") {
+    if(!currentUser||isAdmin){openSocialAuth("login");return;}
+    activeCommentReelId=id;
+    $("comments-modal").hidden=false;
+    loadReelComments(id);
+  }
+  if (action === "share" && reel) {
+    const shareData = { title:"SolexFLIX Reel", text:reel.caption || "Watch this funny reel", url:location.href };
+    if (navigator.share) { try { await navigator.share(shareData); } catch {} }
+    else if (navigator.clipboard) { await navigator.clipboard.writeText(shareData.url); alert("Link copied!"); }
+  }
+});
+
+$("reel-form")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const message = $("reel-message");
+  if (!isAdmin) { showMessage(message, "Admin login required."); return; }
+  const videoUrl = safeVideoUrl($("reel-video-url")?.value.trim());
+  const caption = $("reel-caption")?.value.trim();
+  const creator = $("reel-creator")?.value.trim() || "SolexFLIX";
+  if (!videoUrl || !caption) { showMessage(message, "Valid video URL and caption required."); return; }
+  try {
+    const submit = $("reel-form").querySelector('button[type="submit"]');
+    submit.disabled = true; submit.textContent = "Publishing…";
+    await addDoc(videosRef, { videoUrl, caption, creator, likes:0, createdAt:serverTimestamp(), status:"published" });
+    $("reel-form").reset();
+    showMessage(message, "Reel published successfully!", true);
+    await loadReels();
+  } catch (error) {
+    console.error("Reel publish error:", error);
+    showMessage(message, "Publish failed: " + error.message);
+  } finally {
+    const submit = $("reel-form")?.querySelector('button[type="submit"]');
+    if (submit) { submit.disabled = false; submit.textContent = "Publish Reel"; }
+  }
+});
+
 /* =========================================
    26. START WEBSITE
 ========================================= */
 
+
+/* =========================================
+   APP BOTTOM NAVIGATION
+========================================= */
+function setActiveAppView(viewId) {
+  const allowed = ["home-view", "search-view", "reels-feed", "messages-view", "profile-view"];
+  if (!allowed.includes(viewId)) return;
+  if (!isAdmin) {
+    showSection(websiteSection);
+    hideSection(detailsSection);
+    hideSection(loginSection);
+  }
+  allowed.forEach(id => {
+    const section = $(id);
+    if (section) section.hidden = id !== viewId;
+  });
+  delete document.body.dataset.appOverlay;
+  document.body.dataset.activeView = viewId;
+  document.querySelectorAll(".bottom-nav-btn").forEach((button) => {
+    const active = button.dataset.view === viewId;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-current", active ? "page" : "false");
+  });
+  if (viewId === "reels-feed") {
+    loadReels();
+  }
+  if (viewId === "search-view") { renderSocialSearch(); searchAccounts(socialSearchInput?.value || ""); }
+  if (viewId === "profile-view") {
+    if(!viewedProfile)renderProfilePage();
+    const count = document.querySelectorAll("#reels-container .reel-card").length;
+    const countNode = $("profile-reel-count");
+    if (countNode) countNode.textContent = String(count);
+  }
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+document.querySelectorAll(".bottom-nav-btn").forEach((button) => {
+  button.addEventListener("click", () => { if(button.dataset.view==="profile-view")viewedProfile=null; setActiveAppView(button.dataset.view); });
+});
+$("brand-home")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  setActiveAppView("home-view");
+});
+setActiveAppView("home-view");
+
+
 loadMovies();
+loadReels();
+
+
+/* =========================================
+   SOLEXFLIX SOCIAL APP INTERACTIONS
+========================================= */
+const socialSearchInput = $("social-search-input");
+let socialSearchKind = "all";
+function renderSocialSearch() {
+  const q=(socialSearchInput?.value||"").trim().toLowerCase(),host=$("social-search-results");
+  if(!host)return;
+  const reelItems=reels.filter(r=>!q||[r.caption,r.creator,r.username].some(v=>String(v||"").toLowerCase().includes(q)));
+  const movieItems=movies.filter(m=>!q||[m.title,m.category,m.description].some(v=>String(v||"").toLowerCase().includes(q)));
+  const parts=[];
+  if(socialSearchKind==="all"||socialSearchKind==="accounts")parts.push('<div class="result-section"><h3>Creators</h3><div class="creator-result"><span class="mini-avatar">S</span><div><b>SolexFLIX</b><small>@solexflix · Official</small></div><span class="verified-mark">✓</span></div></div>');
+  if((socialSearchKind==="all"||socialSearchKind==="reels")&&reelItems.length)parts.push('<div class="result-section"><h3>Reels</h3><div class="search-reel-list">'+reelItems.slice(0,12).map(r=>'<button class="search-reel-item" type="button" data-open-reels="1"><span>▶</span><b>'+escapeHTML(r.caption||"Reel")+'</b><small>@'+escapeHTML(r.creator||r.username||"creator")+'</small></button>').join("")+'</div></div>');
+  if((socialSearchKind==="all"||socialSearchKind==="tags")&&movieItems.length)parts.push('<div class="result-section"><h3>Movies & topics</h3><div class="search-reel-list">'+movieItems.slice(0,12).map(m=>'<div class="search-reel-item"><span>▣</span><b>'+escapeHTML(m.title||"Movie")+'</b><small>'+escapeHTML(m.category||"")+'</small></div>').join("")+'</div></div>');
+  host.innerHTML=parts.join("")||'<div class="empty-state">No results found. Try another name or keyword.</div>';
+}
+document.querySelectorAll(".search-tab").forEach(btn=>btn.addEventListener("click",()=>{
+  socialSearchKind=btn.dataset.searchKind||"all";
+  document.querySelectorAll(".search-tab").forEach(b=>b.classList.toggle("active",b===btn));
+  if(socialSearchKind==="all"||socialSearchKind==="accounts")searchAccounts(socialSearchInput?.value||"");
+  else renderSocialSearch();
+}));
+$("social-search-results")?.addEventListener("click",e=>{
+  if(e.target.closest("[data-open-reels]"))setActiveAppView("reels-feed");
+});
+document.querySelectorAll("[data-reel-feed]").forEach(btn=>btn.addEventListener("click",async()=>{
+  activeReelFilter=btn.dataset.reelFeed||"all";
+  document.querySelectorAll("[data-reel-feed]").forEach(b=>b.classList.toggle("active",b===btn));
+  if(activeReelFilter==="friends"&&(!currentUser||isAdmin)){activeReelFilter="all";openSocialAuth("login");return;}
+  await loadReels();
+}));
+$("search-toggle")?.addEventListener("click",()=>setActiveAppView("search-view"));
+function startCreateReel(){openCreateStudio("reel");}
+$("reels-create-btn")?.addEventListener("click",()=>openCreateStudio("reel"));
+$("bottom-create-btn")?.addEventListener("click",()=>{if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}else openCreateStudio("reel");});
+
+$("profile-settings-btn")?.addEventListener("click",()=>alert("Account settings: edit your profile or sign out from this page."));
+
+/* =========================================
+   AUTHENTICATED SOLEXFLIX SOCIAL FEATURES
+   Firestore collections: users, follows, stories,
+   messages, comments, videos.
+========================================= */
+const usersRef = collection(db,"users");
+const followsRef = collection(db,"follows");
+const storiesRef = collection(db,"stories");
+const messagesRef = collection(db,"messages");
+const commentsRef = collection(db,"comments");
+const photosRef = collection(db,"photos");
+const notificationsRef = collection(db,"notifications");
+const acceptedChatsRef = collection(db,"acceptedChats");
+let activeInboxFilter="primary";
+let inboxRows=[];
+let inboxCache=[];
+let inboxUnsubscribe=null;
+let acceptedInboxUnsubscribe=null;
+let acceptedThreadIds=new Set();
+let storyUnsubscribe = null;
+let userSearchResults = [];
+
+
+let notificationUnsubscribe=null;
+async function notifyUser(recipientUid,type,message,extra={}){
+  if(!currentUser||!recipientUid||recipientUid===currentUser.uid)return;
+  try{await addDoc(notificationsRef,{recipientUid,actorUid:currentUser.uid,actorUsername:socialProfile?.username||"creator",type,message,read:false,createdAt:serverTimestamp(),...extra});}
+  catch(err){console.warn("Notification write:",err);}
+}
+function subscribeNotifications(){
+  if(notificationUnsubscribe)notificationUnsubscribe();
+  if(!currentUser||isAdmin)return;
+  notificationUnsubscribe=onSnapshot(query(notificationsRef,where("recipientUid","==",currentUser.uid),limit(60)),snap=>{
+    const rows=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    const unread=rows.some(n=>!n.read);
+    if($("notification-dot"))$("notification-dot").hidden=!unread;
+    const host=$("notifications-list");
+    if(host)host.innerHTML=rows.map(n=>'<button class="notification-row '+(!n.read?"unread":"")+'" type="button" data-notification-id="'+escapeHTML(n.id)+'" data-notification-reel="'+escapeHTML(n.reelId||"")+'"><span class="mini-avatar">'+escapeHTML((n.actorUsername||"S").charAt(0).toUpperCase())+'</span><span><b>@'+escapeHTML(n.actorUsername||"creator")+'</b> '+escapeHTML(n.message||"interacted with you")+'<small>'+new Date((n.createdAt?.seconds||0)*1000).toLocaleString()+'</small></span></button>').join("")||'<div class="empty-state">You are all caught up.</div>';
+  },err=>console.warn("Notifications:",err));
+}
+$("notifications-open")?.addEventListener("click",()=>{
+  if(!currentUser||isAdmin){openSocialAuth("login");return;}
+  $("notifications-modal").hidden=false;
+});
+$("notifications-list")?.addEventListener("click",async e=>{
+  const row=e.target.closest("[data-notification-id]");if(!row)return;
+  try{await updateDoc(doc(db,"notifications",row.dataset.notificationId),{read:true});}catch{}
+  $("notifications-modal").hidden=true;
+  if(row.dataset.notificationReel)setActiveAppView("reels-feed");
+});
+function updateAccountControls(){
+  const signed=!!currentUser && !isAdmin;
+  const button=$("account-open");
+  if(button)button.textContent=signed ? (socialProfile?.username ? "@"+socialProfile.username : "Account") : "Sign in";
+  if($("profile-signout-btn"))$("profile-signout-btn").hidden=!signed;
+  if($("profile-display-name") && signed && socialProfile?.displayName)$("profile-display-name").textContent=socialProfile.displayName;
+}
+function openSocialAuth(mode="login"){
+  socialAuthMode=mode;
+  $("social-auth-modal").hidden=false;
+  document.querySelectorAll(".auth-mode").forEach(b=>b.classList.toggle("active",b.dataset.authMode===mode));
+  $("social-auth-title").textContent=mode==="signup"?"Create your SolexFLIX account":"Welcome back";
+  $("social-auth-name").hidden=mode!=="signup";
+  $("social-auth-username").hidden=mode!=="signup";
+  $("social-auth-submit").textContent=mode==="signup"?"Create account":"Log in";
+  $("social-auth-password").autocomplete=mode==="signup"?"new-password":"current-password";
+  showMessage($("social-auth-message"),"");
+}
+$("account-open")?.addEventListener("click",()=>currentUser&&!isAdmin?setActiveAppView("profile-view"):openSocialAuth("login"));
+$("close-social-auth")?.addEventListener("click",()=>$("social-auth-modal").hidden=true);
+document.querySelectorAll(".auth-mode").forEach(b=>b.addEventListener("click",()=>openSocialAuth(b.dataset.authMode)));
+$("social-auth-form")?.addEventListener("submit",async e=>{
+ e.preventDefault();
+ const email=$("social-auth-email").value.trim().toLowerCase(),password=$("social-auth-password").value;
+ const username=$("social-auth-username").value.trim().toLowerCase().replace(/^@/,""),name=$("social-auth-name").value.trim(),submit=$("social-auth-submit");
+ if(socialAuthMode==="signup"&&!/^[a-z0-9._]{3,24}$/.test(username)){showMessage($("social-auth-message"),"Username: 3–24 letters, numbers, dot or underscore.");return;}
+ setButtonBusy(submit,true,socialAuthMode==="signup"?"Creating account…":"Logging in…",socialAuthMode==="signup"?"Create account":"Log in");
+ try{
+  if(socialAuthMode==="signup"){
+   const existing=await getDocs(query(usersRef,where("username","==",username),limit(1)));
+   if(!existing.empty)throw new Error("This username is already taken.");
+   const credential=await createUserWithEmailAndPassword(auth,email,password);
+   const profile={uid:credential.user.uid,username,displayName:name||username,bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
+   await updateProfile(credential.user,{displayName:name||username});
+   await setDoc(doc(db,"users",credential.user.uid),profile);
+   socialProfile=profile;
+  }else await signInWithEmailAndPassword(auth,email,password);
+  const modal=$("social-auth-modal"),card=modal?.querySelector(".social-auth-card");
+  showMessage($("social-auth-message"),socialAuthMode==="signup"?"Account created successfully!":"Login successful!",true);
+  card?.classList.add("auth-success");
+  await new Promise(resolve=>setTimeout(resolve,700));
+  card?.classList.remove("auth-success");
+  modal.hidden=true;$("social-auth-form").reset();viewedProfile=null;setActiveAppView("profile-view");
+ }catch(error){
+  console.error("Social authentication:",error);
+  const message=error.code==="auth/email-already-in-use"?"This email already has an account. Please log in.":error.message||"Could not sign in.";
+  showMessage($("social-auth-message"),message);
+ }finally{setButtonBusy(submit,false,null,socialAuthMode==="signup"?"Create account":"Log in");}
+});
+async function loadSocialProfile(user){
+  try{
+    const snap=await getDoc(doc(db,"users",user.uid));
+    if(snap.exists())socialProfile={uid:user.uid,...snap.data()};
+    else{
+      const fallback={uid:user.uid,username:(user.displayName||("creator_"+user.uid.slice(0,6))).toLowerCase().replace(/[^a-z0-9._]/g,"").slice(0,24),displayName:user.displayName||"Creator",bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
+      socialProfile=fallback;
+      await setDoc(doc(db,"users",user.uid),fallback,{merge:true});
+    }
+  }catch(error){console.warn("Profile load failed",error);socialProfile={uid:user.uid,username:user.displayName||"creator",displayName:user.displayName||"Creator",bio:""};}
+  updateAccountControls();renderProfilePage();renderSocialSearch();loadInbox();loadOwnReels();loadOwnPhotos();
+}
+
+async function loadOwnReels(){
+  if(!currentUser||isAdmin)return;
+  try{
+    const snap=await getDocs(query(videosRef,where("creatorUid","==",currentUser.uid),limit(60)));
+    const own=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const grid=$("profile-content-grid");
+    if(grid)grid.innerHTML=own.length?own.map(r=>'<button class="profile-reel-tile" type="button" data-open-reels="1"><span>▶</span><small>'+escapeHTML(r.caption||"Reel")+'</small></button>').join(""):'<div class="empty-state">Your published Reels will appear here.</div>';
+    if($("profile-post-count"))$("profile-post-count").textContent=String(own.length);
+  }catch(err){console.warn("Own Reels:",err);}
+}
+async function loadOwnPhotos(){
+ if(!currentUser||isAdmin)return;
+ try{
+  const snap=await getDocs(query(photosRef,where("creatorUid","==",currentUser.uid),limit(60)));
+  const rows=snap.docs.map(d=>({id:d.id,...d.data()}));window.__solexOwnPhotos=rows;
+  const grid=$("profile-content-grid");if(grid&&grid.dataset.profileTab==="photos")renderOwnPhotos(rows);
+ }catch(err){console.warn("Photos:",err);}
+}
+function renderOwnPhotos(rows=window.__solexOwnPhotos||[]){
+ const grid=$("profile-content-grid");if(!grid)return;
+ grid.innerHTML=rows.length?rows.map(p=>'<article class="profile-photo-tile"><img src="'+escapeHTML(p.mediaUrl||"")+'" alt="'+escapeHTML(p.caption||"Photo")+'"><p>'+escapeHTML(p.caption||"")+'</p></article>').join(""):'<div class="empty-state">Your photos will appear here.</div>';
+}
+document.querySelectorAll("[data-profile-tab]").forEach(b=>b.addEventListener("click",()=>{
+ document.querySelectorAll("[data-profile-tab]").forEach(x=>x.classList.toggle("active",x===b));
+ const grid=$("profile-content-grid");if(grid)grid.dataset.profileTab=b.dataset.profileTab;
+ if(b.dataset.profileTab==="photos")loadOwnPhotos();
+ else if(b.dataset.profileTab==="reels")loadOwnReels();
+ else if(grid)grid.innerHTML='<div class="empty-state">Your posts will appear here.</div>';
+}));
+function renderProfilePage(){
+  const p=viewedProfile||socialProfile;
+  const own=!!currentUser&&p?.uid===currentUser.uid;
+  if($("edit-profile-btn"))$("edit-profile-btn").hidden=!own;
+  if($("profile-publish-tools"))$("profile-publish-tools").hidden=!own;
+  if($("profile-signout-btn"))$("profile-signout-btn").hidden=!own;
+  if($("profile-message-btn"))$("profile-message-btn").hidden=own||!p?.uid;
+  if($("profile-follow-btn"))$("profile-follow-btn").hidden=own||!p?.uid||!currentUser||isAdmin;
+  if(p?.uid&&!own&&currentUser)refreshProfileFollowState(p.uid);
+  if($("profile-avatar")){
+    $("profile-avatar").innerHTML=p?.photoURL?'<img src="'+escapeHTML(p.photoURL)+'" alt="Profile photo">':escapeHTML((p?.displayName||p?.username||"S").charAt(0).toUpperCase());
+  }
+  if($("profile-photo-btn"))$("profile-photo-btn").hidden=!own;
+  if($("profile-display-name"))$("profile-display-name").textContent=p?.displayName||"SolexFLIX Creator";
+  if($("profile-handle"))$("profile-handle").textContent="@"+(p?.username||"solexflix");
+  if($("profile-bio"))$("profile-bio").textContent=p?.bio||"Movies, moments and people.";
+  if($("profile-follower-count"))$("profile-follower-count").textContent="…";
+  if($("profile-following-count"))$("profile-following-count").textContent="…";
+  if(p?.uid){
+    Promise.all([
+      getDocs(query(followsRef,where("followingUid","==",p.uid))),
+      getDocs(query(followsRef,where("followerUid","==",p.uid)))
+    ]).then(([followers,following])=>{
+      $("profile-follower-count").textContent=followers.size;
+      $("profile-following-count").textContent=following.size;
+    }).catch(()=>{});
+  }else{
+    if($("profile-follower-count"))$("profile-follower-count").textContent="0";
+    if($("profile-following-count"))$("profile-following-count").textContent="0";
+  }
+}
+
+async function refreshProfileFollowState(targetUid){
+  if(!currentUser||!targetUid||targetUid===currentUser.uid)return;
+  const btn=$("profile-follow-btn");if(!btn)return;
+  try{
+    const snap=await getDoc(doc(db,"follows",currentUser.uid+"_"+targetUid));
+    btn.textContent=snap.exists()?"Following":"Follow";
+    btn.classList.toggle("is-following",snap.exists());
+  }catch(err){console.warn(err);}
+}
+$("profile-follow-btn")?.addEventListener("click",async()=>{
+  if(!currentUser||!viewedProfile?.uid)return;
+  const targetUid=viewedProfile.uid,ref=doc(db,"follows",currentUser.uid+"_"+targetUid),btn=$("profile-follow-btn");
+  try{
+    const snap=await getDoc(ref);
+    if(snap.exists()){await deleteDoc(ref);btn.textContent="Follow";btn.classList.remove("is-following");}
+    else{await setDoc(ref,{followerUid:currentUser.uid,followingUid:targetUid,createdAt:serverTimestamp()});btn.textContent="Following";btn.classList.add("is-following");await notifyUser(targetUid,"follow","started following you");}
+    renderProfilePage();
+  }catch(err){alert("Follow update failed: "+err.message);}
+});
+document.querySelector(".profile-numbers")?.addEventListener("click",async e=>{
+  const button=e.target.closest("[data-profile-relation]");if(!button)return;
+  const p=viewedProfile||socialProfile;if(!p?.uid)return;
+  const kind=button.dataset.profileRelation;
+  $("relations-title").textContent=kind==="followers"?"Followers":"Following";
+  const host=$("relations-list");host.innerHTML='<div class="empty-state">Loading…</div>';
+  $("relations-modal").hidden=false;
+  try{
+    const snap=await getDocs(query(followsRef,where(kind==="followers"?"followingUid":"followerUid","==",p.uid),limit(200)));
+    const ids=snap.docs.map(d=>kind==="followers"?d.data().followerUid:d.data().followingUid).filter(uid=>uid!==p.uid);
+    const profiles=await Promise.all(ids.map(async uid=>{const u=await getDoc(doc(db,"users",uid));return u.exists()?{uid,...u.data()}:null;}));
+    const valid=profiles.filter(Boolean);
+    host.innerHTML=valid.map(u=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((u.displayName||u.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(u.displayName||u.username)+'</b><small>@'+escapeHTML(u.username||"creator")+'</small></div><button type="button" class="profile-view-action" data-profile-uid="'+escapeHTML(u.uid)+'">View</button></div>').join("")||'<div class="empty-state">No accounts here yet.</div>';
+  }catch(err){host.innerHTML='<div class="empty-state">Could not load this list.</div>';}
+});
+$("relations-list")?.addEventListener("click",e=>{
+  const btn=e.target.closest("[data-profile-uid]");if(!btn)return;
+  $("relations-modal").hidden=true;openPublicProfile(btn.dataset.profileUid);
+});
+async function openPublicProfile(uid){
+  try{
+    const snap=await getDoc(doc(db,"users",uid));
+    if(!snap.exists())return;
+    viewedProfile={uid,...snap.data()};
+    setActiveAppView("profile-view");
+    renderProfilePage();
+    const [posts]=await Promise.all([getDocs(query(videosRef,where("creatorUid","==",uid),limit(60)))]);
+    if($("profile-post-count"))$("profile-post-count").textContent=posts.size;
+    const grid=$("profile-content-grid");
+    if(grid)grid.innerHTML=posts.size?posts.docs.map(d=>'<button class="profile-reel-tile" type="button" data-open-reels="1"><span>▶</span><small>'+escapeHTML(d.data().caption||"Reel")+'</small></button>').join(""):'<div class="empty-state">No public Reels yet.</div>';
+  }catch(err){console.warn("Public profile:",err);}
+}
+
+$("profile-photo-btn")?.addEventListener("click",()=>$("profile-photo-input")?.click());
+$("profile-photo-input")?.addEventListener("change",async e=>{
+  const file=e.target.files?.[0];if(!file||!currentUser)return;
+  try{
+    if(!file.type.startsWith("image/"))throw new Error("Choose an image.");
+    const photoURL=await uploadSocialMedia(file,"profiles",5*1024*1024);
+    await setDoc(doc(db,"users",currentUser.uid),{photoURL},{merge:true});
+    await loadSocialProfile(currentUser);
+  }catch(err){alert("Profile photo upload failed: "+err.message);}
+  finally{e.target.value="";}
+});
+$("profile-message-btn")?.addEventListener("click",()=>{if(viewedProfile?.username)openDirectMessage(viewedProfile.username);});
+$("profile-signout-btn")?.addEventListener("click",async()=>{if(activeChatUnsubscribe)activeChatUnsubscribe();await signOut(auth);setActiveAppView("home-view");});
+$("edit-profile-btn")?.addEventListener("click",async()=>{
+  if(!currentUser||isAdmin){openSocialAuth("login");return;}
+  const displayName=prompt("Display name",socialProfile?.displayName||"");
+  if(displayName===null)return;
+  const bio=prompt("Profile bio",socialProfile?.bio||"");
+  if(bio===null)return;
+  const username=prompt("Username (3–24 characters)",socialProfile?.username||"");
+  if(username===null)return;
+  const clean=username.trim().toLowerCase().replace(/^@/,"");
+  if(!/^[a-z0-9._]{3,24}$/.test(clean)){alert("Invalid username.");return;}
+  try{
+    const found=await getDocs(query(usersRef,where("username","==",clean),limit(2)));
+    if(found.docs.some(d=>d.id!==currentUser.uid)){alert("Username already taken.");return;}
+    await setDoc(doc(db,"users",currentUser.uid),{username:clean,displayName:displayName.trim().slice(0,40),bio:bio.trim().slice(0,160)},{merge:true});
+    await updateProfile(currentUser,{displayName:displayName.trim().slice(0,40)});
+    await loadSocialProfile(currentUser);
+  }catch(err){alert("Profile update failed: "+err.message);}
+});
+async function subscribeStories(){
+  if(storyUnsubscribe)storyUnsubscribe();
+  try{
+    const q=query(storiesRef,orderBy("createdAt","desc"),limit(30));
+    storyUnsubscribe=onSnapshot(q,snap=>{
+      const host=$("stories-list");if(!host)return;
+      const active=snap.docs.filter(d=>{const t=d.data().createdAt?.toMillis?.()||0;return !t||Date.now()-t<86400000;});
+      host.innerHTML=active.map(d=>{
+        const x=d.data();return '<button class="story-item" type="button" data-story-url="'+escapeHTML(x.mediaUrl||"")+'" data-story-user="'+escapeHTML(x.username||"creator")+'"><span class="story-ring"><span class="mini-avatar">'+escapeHTML((x.username||"S").charAt(0).toUpperCase())+'</span></span><small>'+escapeHTML(x.username||"creator")+'</small></button>';
+      }).join("")||'<div class="stories-loading">No stories yet — be the first to share.</div>';
+    },err=>console.warn("Stories feed:",err));
+  }catch(err){console.warn(err);}
+}
+async function uploadSocialMedia(file,folder,maxBytes){
+  if(!file)throw new Error("Choose a file first.");
+  if(file.size>maxBytes)throw new Error("File is too large. Maximum "+Math.round(maxBytes/1024/1024)+" MB.");
+  if(!["image/","video/"].some(type=>file.type.startsWith(type)))throw new Error("Only image or video files are allowed.");
+  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+  const path=folder+"/"+currentUser.uid+"/"+Date.now()+"_"+safeName;
+  const target=storageRef(storage,path);
+  return await new Promise((resolve,reject)=>{
+    const task=uploadBytesResumable(target,file,{contentType:file.type});
+    showUploadProgress("Uploading "+(folder==="reels"?"Reel":folder==="photos"?"Photo":"Story"),0);
+    task.on("state_changed",snapshot=>{
+      const pct=snapshot.totalBytes?100*snapshot.bytesTransferred/snapshot.totalBytes:0;
+      showUploadProgress("Uploading "+(folder==="reels"?"Reel":folder==="photos"?"Photo":"Story"),pct);
+    },error=>{hideUploadProgress();reject(error);},async()=>{
+      try{const url=await getDownloadURL(task.snapshot.ref);hideUploadProgress();resolve(url);}
+      catch(error){hideUploadProgress();reject(error);}
+    });
+  });
+}
+$("story-add-btn")?.addEventListener("click",()=>{
+  if(!currentUser||isAdmin){openSocialAuth("signup");return;}
+  $("story-file-input")?.click();
+});
+$("story-file-input")?.addEventListener("change",async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  const button=$("story-add-btn");button.disabled=true;
+  try{
+    const mediaUrl=await uploadSocialMedia(file,"stories",25*1024*1024);
+    await addDoc(storiesRef,{uid:currentUser.uid,username:socialProfile?.username||"creator",mediaUrl,mediaType:file.type,createdAt:serverTimestamp()});
+    e.target.value="";
+  }catch(err){alert("Story upload failed: "+err.message);}
+  finally{button.disabled=false;}
+});
+$("stories-list")?.addEventListener("click",e=>{
+  const item=e.target.closest("[data-story-url]");if(!item)return;
+  const url=item.dataset.storyUrl,host=$("story-viewer");
+  $("story-viewer-user").textContent="@"+(item.dataset.storyUser||"creator");
+  const cleanUrl=url.split("?")[0].toLowerCase();
+  const isVideo=[".mp4",".webm",".mov"].some(ext=>cleanUrl.endsWith(ext));
+  $("story-viewer-video").hidden=!isVideo;
+  $("story-viewer-image").hidden=isVideo;
+  if(isVideo){$("story-viewer-image").src="";$("story-viewer-video").src=url;$("story-viewer-video").play().catch(()=>{});}
+  else{$("story-viewer-video").pause();$("story-viewer-video").src="";$("story-viewer-image").src=url;}
+  host.hidden=false;
+});
+function setCreateType(type){
+  const photo=type==="photo";
+  document.querySelectorAll("[data-create-type]").forEach(b=>b.classList.toggle("active",b.dataset.createType===type));
+  $("create-studio-title").textContent=photo?"New photo":"New reel";
+  $("create-media-label").textContent=photo?"Choose photo from phone":"Choose video from phone";
+  $("create-media-help").textContent=photo?"JPG, PNG or WebP · up to 25 MB":"MP4, WebM or MOV · up to 150 MB";
+  $("create-media-icon").textContent=photo?"▧":"＋";
+  $("user-reel-file").accept=photo?"image/jpeg,image/png,image/webp":"video/mp4,video/webm,video/quicktime";
+  $("user-reel-file").value="";$("create-media-preview").hidden=true;$("create-media-preview").innerHTML="";
+  $("create-publish-btn").textContent=photo?"Share photo":"Share Reel";
+  $("user-reel-caption").value="";$("user-reel-hashtags").value="";$("user-reel-tags").value="";
+  $("create-studio").dataset.type=type;
+}
+function openCreateStudio(type="reel"){
+  if(!currentUser||isAdmin){openSocialAuth("signup");return;}
+  setCreateType(type);$("create-studio").hidden=false;
+}
+function closeCreateStudio(){$("create-studio").hidden=true;$("create-media-preview").innerHTML="";}
+$("create-studio-close")?.addEventListener("click",closeCreateStudio);
+document.querySelectorAll("[data-create-type]").forEach(b=>b.addEventListener("click",()=>setCreateType(b.dataset.createType)));
+$("create-studio-share-top")?.addEventListener("click",()=>$("user-reel-form")?.requestSubmit());
+$("user-reel-file")?.addEventListener("change",e=>{
+  const f=e.target.files?.[0],p=$("create-media-preview");if(!f)return;
+  const u=URL.createObjectURL(f);
+  p.innerHTML=f.type.startsWith("image/")?'<img src="'+u+'" alt="Photo preview">':'<video src="'+u+'" controls playsinline></video>';
+  p.hidden=false;
+});
+$("user-reel-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!currentUser||isAdmin){openSocialAuth("signup");return;}
+  const photo=$("create-studio").dataset.type==="photo",file=$("user-reel-file").files?.[0],caption=$("user-reel-caption").value.trim(),btn=$("create-publish-btn");
+  setButtonBusy(btn,true,"Preparing…",photo?"Share photo":"Share Reel");
+  try{
+    if(!file)throw new Error("Choose a "+(photo?"photo":"video")+" first.");
+    if(photo&&!file.type.startsWith("image/"))throw new Error("Select an image file.");
+    if(!photo&&!file.type.startsWith("video/"))throw new Error("Select a video file.");
+    const url=await uploadSocialMedia(file,photo?"photos":"reels",photo?25*1024*1024:150*1024*1024);
+    const tags=$("user-reel-tags").value.split(/[ ,]+/).map(x=>x.trim().replace(/^@/,"").toLowerCase()).filter(Boolean).slice(0,20);
+    const hashtags=$("user-reel-hashtags").value.split(/[ ,]+/).map(x=>x.trim().replace(/^#/,"").toLowerCase()).filter(Boolean).slice(0,30);
+    const post={mediaUrl:url,caption,hashtags,tags,creator:socialProfile?.username||"creator",creatorUid:currentUser.uid,createdAt:serverTimestamp(),status:"published"};
+    if(photo)await addDoc(photosRef,post);else await addDoc(videosRef,{...post,videoUrl:url,likes:0});
+    closeCreateStudio();$("user-reel-form").reset();
+    await loadReels();await loadOwnReels();await loadOwnPhotos();
+    showCreateToast(photo?"Photo shared successfully!":"Reel shared successfully!");
+  }catch(err){alert((photo?"Photo":"Reel")+" upload failed: "+err.message);}
+  finally{setButtonBusy(btn,false,null,photo?"Share photo":"Share Reel");hideUploadProgress();}
+});
+function showCreateToast(message){
+  let t=$("create-toast");if(!t){t=document.createElement("div");t.id="create-toast";t.className="create-toast";document.body.appendChild(t);}
+  t.textContent=message;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);
+}
+document.querySelectorAll("[data-close-viewer]").forEach(btn=>btn.addEventListener("click",()=>{
+  const id=btn.dataset.closeViewer;const el=$(id);if(el)el.hidden=true;
+  if(id==="story-viewer"){$("story-viewer-video").pause();$("story-viewer-video").src="";}
+}));
+async function loadReelComments(reelId){
+  const host=$("reel-comments-list");if(!host)return;
+  host.innerHTML='<div class="empty-state">Loading comments…</div>';
+  try{
+    const snap=await getDocs(query(commentsRef,where("reelId","==",reelId),limit(100)));
+    const rows=snap.docs.map(d=>d.data()).sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+    host.innerHTML=rows.map(c=>'<div class="comment-row"><b>@'+escapeHTML(c.username||"creator")+'</b><span>'+escapeHTML(c.text||"")+'</span></div>').join("")||'<div class="empty-state">Be the first to comment.</div>';
+  }catch(err){host.innerHTML='<div class="empty-state">Comments could not load.</div>';console.warn(err);}
+}
+$("reel-comment-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!currentUser||!activeCommentReelId)return;
+  const input=$("reel-comment-input"),textValue=input.value.trim();if(!textValue)return;
+  const submit=e.submitter; if(submit)submit.disabled=true;
+  try{
+    await addDoc(commentsRef,{reelId:activeCommentReelId,uid:currentUser.uid,username:socialProfile?.username||"creator",text:textValue.slice(0,500),createdAt:serverTimestamp()});
+    const targetReel=reels.find(r=>r.id===activeCommentReelId);await notifyUser(targetReel?.creatorUid,"comment","commented on your Reel",{reelId:activeCommentReelId});
+    input.value="";await loadReelComments(activeCommentReelId);
+  }catch(err){alert("Comment failed: "+err.message);}
+  finally{if(submit)submit.disabled=false;}
+});
+$("profile-content-grid")?.addEventListener("click",e=>{
+  if(e.target.closest("[data-open-reels]"))setActiveAppView("reels-feed");
+});
+document.querySelectorAll(".profile-content-tab").forEach(btn=>btn.addEventListener("click",()=>{
+  document.querySelectorAll(".profile-content-tab").forEach(b=>b.classList.toggle("active",b===btn));
+  const grid=$("profile-content-grid");
+  if(btn.dataset.profileTab==="reels")loadOwnReels();
+  else if(grid)grid.innerHTML='<div class="empty-state">No '+escapeHTML(btn.dataset.profileTab)+' posts yet.</div>';
+}));
+$("start-chat-btn")?.addEventListener("click",()=>{const who=prompt("Enter SolexFLIX username:");if(who)openDirectMessage(who);});
+$("share-profile-btn")?.addEventListener("click",async()=>{
+  const p=viewedProfile||socialProfile,username=p?.username||"solexflix";
+  const url=location.origin+location.pathname+"?user="+encodeURIComponent(username);
+  try{if(navigator.share)await navigator.share({title:"SolexFLIX",text:"Follow @"+username,url});else{await navigator.clipboard.writeText(url);alert("Profile link copied.");}}catch{}
+});
+$("profile-content-grid")?.addEventListener("click",e=>{
+  const tile=e.target.closest(".profile-reel-tile");if(tile)setActiveAppView("reels-feed");
+});
+async function searchAccounts(term){
+  const host=$("social-search-results");if(!host)return;
+  try{
+    const q=query(usersRef,orderBy("username"),limit(100));
+    const snap=await getDocs(q);
+    userSearchResults=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>!term||(p.username||"").toLowerCase().includes(term.toLowerCase())||(p.displayName||"").toLowerCase().includes(term.toLowerCase()));
+    const accountMarkup=userSearchResults.map(p=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((p.displayName||p.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(p.displayName||p.username)+'</b><small>@'+escapeHTML(p.username||"creator")+'</small></div><button class="profile-view-action" data-profile-uid="'+escapeHTML(p.uid)+'">View</button><button class="profile-view-action" data-message-username="'+escapeHTML(p.username||"creator")+'">Message</button><button class="follow-action" data-follow-uid="'+escapeHTML(p.uid)+'" data-follow-name="'+escapeHTML(p.username||"creator")+'">Follow</button></div>').join("")||'<div class="empty-state">No accounts found.</div>';
+    let extraMarkup="";
+    if(socialSearchKind==="all"){
+      const term=(socialSearchInput?.value||"").trim().toLowerCase();
+      const foundReels=reels.filter(r=>!term||[r.caption,r.creator,r.username].some(v=>String(v||"").toLowerCase().includes(term))).slice(0,8);
+      const foundMovies=movies.filter(m=>!term||[m.title,m.category,m.description].some(v=>String(v||"").toLowerCase().includes(term))).slice(0,8);
+      if(foundReels.length)extraMarkup+='<div class="result-section"><h3>Reels</h3><div class="search-reel-list">'+foundReels.map(r=>'<button class="search-reel-item" type="button" data-open-reels="1"><span>▶</span><b>'+escapeHTML(r.caption||"Reel")+'</b><small>@'+escapeHTML(r.creator||r.username||"creator")+'</small></button>').join("")+'</div></div>';
+      if(foundMovies.length)extraMarkup+='<div class="result-section"><h3>Movies & topics</h3><div class="search-reel-list">'+foundMovies.map(m=>'<div class="search-reel-item"><span>▣</span><b>'+escapeHTML(m.title||"Movie")+'</b><small>'+escapeHTML(m.category||"")+'</small></div>').join("")+'</div></div>';
+    }
+    host.innerHTML='<div class="result-section"><h3>Accounts</h3>'+accountMarkup+'</div>'+extraMarkup;
+  }catch(err){host.innerHTML='<div class="empty-state">Account search needs Firestore user read permissions.</div>';console.warn(err);}
+}
+socialSearchInput?.addEventListener("input",()=>{
+  const term=socialSearchInput.value.trim();
+  if(socialSearchKind==="all"||socialSearchKind==="accounts")searchAccounts(term);
+  else renderSocialSearch();
+});
+$("social-search-results")?.addEventListener("click",async e=>{
+  const messageBtn=e.target.closest("[data-message-username]");if(messageBtn){openDirectMessage(messageBtn.dataset.messageUsername);return;}
+  const view=e.target.closest("[data-profile-uid]");if(view){openPublicProfile(view.dataset.profileUid);return;}
+  const btn=e.target.closest("[data-follow-uid]");if(!btn)return;
+  if(!currentUser||isAdmin){openSocialAuth("login");return;}
+  const target=btn.dataset.followUid;if(target===currentUser.uid)return;
+  const followId=currentUser.uid+"_"+target;
+  try{
+    const ref=doc(db,"follows",followId),snap=await getDoc(ref);
+    if(snap.exists()){await deleteDoc(ref);btn.textContent="Follow";}
+    else{await setDoc(ref,{followerUid:currentUser.uid,followingUid:target,createdAt:serverTimestamp()});btn.textContent="Following";await notifyUser(target,"follow","started following you");}
+  }catch(err){alert("Follow update failed: "+err.message);}
+});
+
+function rebuildInboxFromSnapshot(messageDocs){
+  const latest=new Map();
+  messageDocs.forEach(d=>{
+    const m=d.data(),other=m.senderUid===currentUser.uid?m.recipientUid:m.senderUid;
+    const name=m.senderUid===currentUser.uid?m.recipientUsername:m.senderUsername;
+    const previous=latest.get(other);
+    if(!previous||(m.createdAt?.seconds||0)>(previous.createdAt?.seconds||0))
+      latest.set(other,{uid:other,username:name||"creator",text:m.text||"",createdAt:m.createdAt,threadId:m.threadId,lastSenderUid:m.senderUid});
+  });
+  inboxRows=[...latest.values()].map(row=>({...row,request:!acceptedThreadIds.has(row.threadId)&&row.lastSenderUid!==currentUser.uid}));
+  renderInbox();
+}
+function loadInbox(){
+  if(inboxUnsubscribe){inboxUnsubscribe();inboxUnsubscribe=null;}
+  if(acceptedInboxUnsubscribe){acceptedInboxUnsubscribe();acceptedInboxUnsubscribe=null;}
+  if(!currentUser||isAdmin)return;
+  const inboxQuery=query(messagesRef,where("participants","array-contains",currentUser.uid),limit(120));
+  const acceptedQuery=query(acceptedChatsRef,where("uid","==",currentUser.uid),limit(120));
+  acceptedInboxUnsubscribe=onSnapshot(acceptedQuery,snap=>{
+    acceptedThreadIds=new Set(snap.docs.map(d=>d.data().threadId));
+    rebuildInboxFromSnapshot(inboxCache);
+  },err=>console.warn("Accepted chats:",err));
+  inboxUnsubscribe=onSnapshot(inboxQuery,snap=>{
+    inboxCache=snap.docs;
+    rebuildInboxFromSnapshot(inboxCache);
+  },err=>{
+    console.warn("Inbox load:",err);
+    const host=$("conversation-list");
+    if(host)host.innerHTML='<div class="empty-state">Inbox permissions need to be enabled in Firebase.</div>';
+  });
+}
+function renderInbox(){
+  const host=$("conversation-list");if(!host)return;
+  const rows=inboxRows.filter(row=>activeInboxFilter==="requests"?row.request:!row.request);
+  host.innerHTML=rows.map(c=>'<div class="conversation-row"><button class="conversation-item" type="button" data-chat-user="'+escapeHTML(c.username)+'"><span class="mini-avatar">'+escapeHTML(c.username.charAt(0).toUpperCase())+'</span><span><b>@'+escapeHTML(c.username)+'</b><small>'+escapeHTML(c.text)+'</small></span></button>'+(c.request?'<button type="button" class="accept-request" data-accept-thread="'+escapeHTML(c.threadId)+'" data-chat-user="'+escapeHTML(c.username)+'">Accept</button>':'')+'</div>').join("")||'<div class="empty-state">'+(activeInboxFilter==="requests"?"No message requests.":"No messages yet. Search for a creator to start chatting.")+'</div>';
+}
+document.querySelectorAll("[data-inbox-filter]").forEach(btn=>btn.addEventListener("click",()=>{
+  activeInboxFilter=btn.dataset.inboxFilter||"primary";
+  document.querySelectorAll("[data-inbox-filter]").forEach(b=>b.classList.toggle("active",b===btn));
+  renderInbox();
+}));
+$("conversation-list")?.addEventListener("click",async e=>{
+  const accept=e.target.closest("[data-accept-thread]");
+  if(accept){
+    try{await setDoc(doc(db,"acceptedChats",currentUser.uid+"_"+accept.dataset.acceptThread),{uid:currentUser.uid,threadId:accept.dataset.acceptThread,acceptedAt:serverTimestamp()});await loadInbox();openDirectMessage(accept.dataset.chatUser);}
+    catch(err){alert("Could not accept request: "+err.message);}
+    return;
+  }
+  const item=e.target.closest("[data-chat-user]");if(item)openDirectMessage(item.dataset.chatUser);
+});
+async function openDirectMessage(username){
+  if(!currentUser||isAdmin){openSocialAuth("login");return;}
+  const clean=username.trim().replace(/^@/,"").toLowerCase();
+  try{
+    const snap=await getDocs(query(usersRef,where("username","==",clean),limit(1)));
+    if(snap.empty){alert("Account not found.");return;}
+    const target={uid:snap.docs[0].id,...snap.docs[0].data()};
+    if(target.uid===currentUser.uid){alert("This is your own account.");return;}
+    activeConversationUser=target;
+    setActiveAppView("messages-view");
+    document.querySelectorAll(".conversation-item").forEach(item=>item.classList.toggle("active",item.dataset.chatUser===target.username));
+    $("inbox-layout")?.classList.add("chat-open");
+    $("chat-panel").innerHTML='<div class="chat-header"><button type="button" id="chat-back-btn" class="chat-back-btn">←</button><span class="mini-avatar">'+escapeHTML((target.username||"S").charAt(0).toUpperCase())+'</span><b>@'+escapeHTML(target.username)+'</b><span class="chat-call-actions"><button type="button" id="voice-call-btn" aria-label="Voice call">☎</button><button type="button" id="video-call-btn" aria-label="Video call">▣</button></span></div><div class="chat-messages" id="chat-messages"></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" maxlength="2000" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
+    $("chat-back-btn")?.addEventListener("click",()=>{$("inbox-layout")?.classList.remove("chat-open");document.querySelectorAll(".conversation-item").forEach(item=>item.classList.remove("active"));});
+    $("voice-call-btn")?.addEventListener("click",()=>startOutgoingCall(target,"audio"));
+    $("video-call-btn")?.addEventListener("click",()=>startOutgoingCall(target,"video"));
+    const participants=[currentUser.uid,target.uid].sort();
+    const threadId=participants.join("_");
+    await setDoc(doc(db,"acceptedChats",currentUser.uid+"_"+threadId),{uid:currentUser.uid,threadId,acceptedAt:serverTimestamp()},{merge:true});
+    if(activeChatUnsubscribe)activeChatUnsubscribe();
+    activeChatUnsubscribe=onSnapshot(query(messagesRef,where("participants","array-contains",currentUser.uid),limit(100)),snap=>{
+      const box=$("chat-messages");if(!box)return;
+      const threadMessages=snap.docs.map(d=>({id:d.id,...d.data()})).filter(m=>m.threadId===threadId).sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+      box.innerHTML=threadMessages.map(m=>'<div class="chat-bubble '+(m.senderUid===currentUser.uid?"own":"")+'">'+escapeHTML(m.text||"")+'</div>').join("")||'<div class="empty-state">Say hello and start the conversation.</div>';
+      box.scrollTop=box.scrollHeight;
+    },err=>console.warn("Message listener",err));
+    $("chat-compose").addEventListener("submit",async ev=>{
+      ev.preventDefault();const input=$("chat-message-input"),value=input.value.trim();if(!value)return;
+      input.disabled=true;
+      try{await addDoc(messagesRef,{threadId,participants:[currentUser.uid,target.uid],senderUid:currentUser.uid,recipientUid:target.uid,senderUsername:socialProfile?.username||"creator",recipientUsername:target.username||"creator",text:value,createdAt:serverTimestamp()});await notifyUser(target.uid,"message","sent you a message");input.value="";}
+      catch(err){alert("Message failed: "+err.message);}finally{input.disabled=false;input.focus();}
+    });
+  }catch(err){alert("Could not open chat: "+err.message);}
+}
+$("new-message-btn")?.addEventListener("click",()=>{const who=prompt("Enter username to message:");if(who)openDirectMessage(who);});
+$("social-search-results")?.addEventListener("dblclick",e=>{
+  const row=e.target.closest(".creator-result");const name=row?.querySelector("small")?.textContent?.replace("@","");
+  if(name)openDirectMessage(name);
+});
+
+
+/* WebRTC voice/video calling with Firestore signalling */
+const callsRef = collection(db,"calls");
+const rtcConfig = {iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
+function stopCallListeners(){activeCallUnsubs.forEach(fn=>{try{fn();}catch{}});activeCallUnsubs=[];}
+function showCallModal(status){$("call-status").textContent=status;$("call-modal").hidden=false;}
+function closeCallModal(){ $("call-modal").hidden=true; }
+async function cleanupCall(updateRemote=false){
+  stopCallListeners();
+  if(callPeer){callPeer.ontrack=null;callPeer.onicecandidate=null;callPeer.close();callPeer=null;}
+  if(localCallStream)localCallStream.getTracks().forEach(t=>t.stop());
+  localCallStream=null;remoteCallStream=null;currentCallId=null;activeCall=null;
+  $("local-call-video").srcObject=null;$("remote-call-video").srcObject=null;
+  closeCallModal();
+}
+async function finishCall(){
+  const id=currentCallId;
+  try{if(id)await updateDoc(doc(db,"calls",id),{status:"ended",endedAt:serverTimestamp()});}catch{}
+  await cleanupCall();
+}
+function watchCallDoc(callId){
+  activeCallUnsubs.push(onSnapshot(doc(db,"calls",callId),snap=>{
+    if(!snap.exists()||["ended","declined"].includes(snap.data().status)){cleanupCall();return;}
+    const data=snap.data();
+    if(data.status==="connected")$("call-status").textContent=callKind==="video"?"Video call connected":"Voice call connected";
+  }));
+}
+async function preparePeer(callId,role){
+  callPeer=new RTCPeerConnection(rtcConfig);
+  remoteCallStream=new MediaStream();
+  $("remote-call-video").srcObject=remoteCallStream;
+  callPeer.ontrack=e=>e.streams[0].getTracks().forEach(track=>remoteCallStream.addTrack(track));
+  callPeer.onicecandidate=async e=>{
+    if(!e.candidate)return;
+    try{await addDoc(collection(db,"calls",callId,role==="caller"?"callerCandidates":"calleeCandidates"),e.candidate.toJSON());}
+    catch(err){console.warn("Call ICE candidate:",err);}
+  };
+  localCallStream=await navigator.mediaDevices.getUserMedia({audio:true,video:callKind==="video"});
+  localCallStream.getTracks().forEach(track=>callPeer.addTrack(track,localCallStream));
+  $("local-call-video").srcObject=localCallStream;
+  $("local-call-video").hidden=callKind!=="video";
+  $("remote-call-video").hidden=callKind!=="video";
+  activeCallUnsubs.push(onSnapshot(collection(db,"calls",callId,role==="caller"?"calleeCandidates":"callerCandidates"),snap=>{
+    snap.docChanges().forEach(change=>{if(change.type==="added")callPeer?.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(console.warn);});
+  }));
+}
+async function startOutgoingCall(target,kind){
+  if(!currentUser||!target?.uid)return;
+  if(!navigator.mediaDevices?.getUserMedia||!window.RTCPeerConnection){alert("This browser does not support calls. Open SolexFLIX in Chrome over HTTPS.");return;}
+  callKind=kind;showCallModal("Calling @"+target.username+"…");
+  try{
+    const callRef=doc(callsRef);
+    currentCallId=callRef.id;activeCall={target,role:"caller"};
+    await preparePeer(currentCallId,"caller");
+    const offer=await callPeer.createOffer();await callPeer.setLocalDescription(offer);
+    await setDoc(callRef,{callerUid:currentUser.uid,calleeUid:target.uid,participants:[currentUser.uid,target.uid],callerName:socialProfile?.username||"creator",calleeName:target.username,kind,status:"ringing",offer:{type:offer.type,sdp:offer.sdp},createdAt:serverTimestamp()});
+    watchCallDoc(currentCallId);
+    activeCallUnsubs.push(onSnapshot(doc(db,"calls",currentCallId),async snap=>{
+      const data=snap.data();if(data?.answer&&!callPeer?.currentRemoteDescription){await callPeer?.setRemoteDescription(new RTCSessionDescription(data.answer));}
+    }));
+  }catch(err){console.error("Call start failed",err);alert("Call could not start: "+err.message+" Check microphone/camera permission and Firebase call rules.");await cleanupCall();}
+}
+async function acceptIncomingCall(callId,data){
+  callKind=data.kind||"audio";currentCallId=callId;activeCall={role:"callee"};
+  showCallModal("Connecting to @"+(data.callerName||"creator")+"…");
+  try{
+    await preparePeer(callId,"callee");
+    await callPeer.setRemoteDescription(new RTCSessionDescription(data.offer));
+    const answer=await callPeer.createAnswer();await callPeer.setLocalDescription(answer);
+    await updateDoc(doc(db,"calls",callId),{answer:{type:answer.type,sdp:answer.sdp},status:"connected"});
+    watchCallDoc(callId);
+  }catch(err){console.error("Accept call failed",err);alert("Could not accept call: "+err.message);await cleanupCall();}
+}
+function subscribeIncomingCalls(){
+  if(!currentUser||isAdmin)return;
+  const q=query(callsRef,where("calleeUid","==",currentUser.uid),where("status","==","ringing"),limit(5));
+  const unsub=onSnapshot(q,snap=>snap.docChanges().forEach(change=>{
+    if(change.type!=="added")return;
+    const data=change.doc.data();
+    if(currentCallId)return;
+    const accept=confirm((data.callerName||"Someone")+" is calling you ("+(data.kind==="video"?"video":"voice")+"). Accept?");
+    if(accept)acceptIncomingCall(change.doc.id,data);
+    else updateDoc(doc(db,"calls",change.doc.id),{status:"declined"}).catch(()=>{});
+  }),err=>console.warn("Incoming call listener:",err));
+  activeCallUnsubs.push(unsub);
+}
+$("call-end-btn")?.addEventListener("click",finishCall);
+$("call-mute-btn")?.addEventListener("click",()=>{
+  const track=localCallStream?.getAudioTracks()[0];if(!track)return;
+  track.enabled=!track.enabled;$("call-mute-btn").textContent=track.enabled?"Mute":"Unmute";
+});
+$("call-camera-btn")?.addEventListener("click",()=>{
+  const track=localCallStream?.getVideoTracks()[0];if(!track)return;
+  track.enabled=!track.enabled;$("call-camera-btn").textContent=track.enabled?"Camera off":"Camera on";
+});
+
+async function openProfileFromUrl(){
+  const username=new URLSearchParams(location.search).get("user");
+  if(!username)return;
+  try{
+    const snap=await getDocs(query(usersRef,where("username","==",username.toLowerCase()),limit(1)));
+    if(!snap.empty)await openPublicProfile(snap.docs[0].id);
+  }catch(err){console.warn("Shared profile link:",err);}
+}
+openProfileFromUrl();
