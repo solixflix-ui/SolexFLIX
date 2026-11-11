@@ -86,6 +86,14 @@ let activeConversationUser = null;
 let socialProfile = null;
 let viewedProfile = null;
 let activeCommentReelId = null;
+let activeCall = null;
+let activeCallUnsubs = [];
+let localCallStream = null;
+let remoteCallStream = null;
+let callPeer = null;
+let currentCallId = null;
+let callKind = "audio";
+
 
 
 /* =========================================
@@ -999,6 +1007,7 @@ onAuthStateChanged(auth, async (user) => {
     await loadSocialProfile(user);
     subscribeStories();
     subscribeNotifications();
+    subscribeIncomingCalls();
   } else {
     if(storyUnsubscribe)storyUnsubscribe();
     if(notificationUnsubscribe)notificationUnsubscribe();
@@ -1704,7 +1713,7 @@ $("bottom-create-btn")?.addEventListener("click",()=>{
   if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}
   else startCreateReel();
 });
-$("admin-shortcut-btn")?.addEventListener("click",()=> $("admin-open")?.click());
+
 $("profile-settings-btn")?.addEventListener("click",()=>alert("Account settings: edit your profile or sign out from this page."));
 
 /* =========================================
@@ -1793,10 +1802,16 @@ $("social-auth-form")?.addEventListener("submit",async e=>{
       const existing=await getDocs(query(usersRef,where("username","==",username),limit(1)));
       if(!existing.empty)throw new Error("This username is already taken.");
       const credential=await createUserWithEmailAndPassword(auth,email,password);
-      await updateProfile(credential.user,{displayName:name||username});
       const profile={uid:credential.user.uid,username,displayName:name||username,bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
-      await setDoc(doc(db,"users",credential.user.uid),profile);
-      socialProfile=profile;
+      try {
+        await updateProfile(credential.user,{displayName:name||username});
+        await setDoc(doc(db,"users",credential.user.uid),profile);
+        socialProfile=profile;
+      } catch (profileError) {
+        console.error("Profile creation failed after Auth account creation:",profileError);
+        showMessage($("social-auth-message"),"Account created, but profile save was blocked by Firestore rules. Sign in again after the Firebase rules are published.");
+        return;
+      }
     }else{
       await signInWithEmailAndPassword(auth,email,password);
     }
@@ -2154,8 +2169,10 @@ async function openDirectMessage(username){
     setActiveAppView("messages-view");
     document.querySelectorAll(".conversation-item").forEach(item=>item.classList.toggle("active",item.dataset.chatUser===target.username));
     $("inbox-layout")?.classList.add("chat-open");
-    $("chat-panel").innerHTML='<div class="chat-header"><button type="button" id="chat-back-btn" class="chat-back-btn">←</button><span class="mini-avatar">'+escapeHTML((target.username||"S").charAt(0).toUpperCase())+'</span><b>@'+escapeHTML(target.username)+'</b></div><div class="chat-messages" id="chat-messages"></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" maxlength="2000" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
+    $("chat-panel").innerHTML='<div class="chat-header"><button type="button" id="chat-back-btn" class="chat-back-btn">←</button><span class="mini-avatar">'+escapeHTML((target.username||"S").charAt(0).toUpperCase())+'</span><b>@'+escapeHTML(target.username)+'</b><span class="chat-call-actions"><button type="button" id="voice-call-btn" aria-label="Voice call">☎</button><button type="button" id="video-call-btn" aria-label="Video call">▣</button></span></div><div class="chat-messages" id="chat-messages"></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" maxlength="2000" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
     $("chat-back-btn")?.addEventListener("click",()=>{$("inbox-layout")?.classList.remove("chat-open");document.querySelectorAll(".conversation-item").forEach(item=>item.classList.remove("active"));});
+    $("voice-call-btn")?.addEventListener("click",()=>startOutgoingCall(target,"audio"));
+    $("video-call-btn")?.addEventListener("click",()=>startOutgoingCall(target,"video"));
     const participants=[currentUser.uid,target.uid].sort();
     const threadId=participants.join("_");
     await setDoc(doc(db,"acceptedChats",currentUser.uid+"_"+threadId),{uid:currentUser.uid,threadId,acceptedAt:serverTimestamp()},{merge:true});
@@ -2178,6 +2195,102 @@ $("new-message-btn")?.addEventListener("click",()=>{const who=prompt("Enter user
 $("social-search-results")?.addEventListener("dblclick",e=>{
   const row=e.target.closest(".creator-result");const name=row?.querySelector("small")?.textContent?.replace("@","");
   if(name)openDirectMessage(name);
+});
+
+
+/* WebRTC voice/video calling with Firestore signalling */
+const callsRef = collection(db,"calls");
+const rtcConfig = {iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
+function stopCallListeners(){activeCallUnsubs.forEach(fn=>{try{fn();}catch{}});activeCallUnsubs=[];}
+function showCallModal(status){$("call-status").textContent=status;$("call-modal").hidden=false;}
+function closeCallModal(){ $("call-modal").hidden=true; }
+async function cleanupCall(updateRemote=false){
+  stopCallListeners();
+  if(callPeer){callPeer.ontrack=null;callPeer.onicecandidate=null;callPeer.close();callPeer=null;}
+  if(localCallStream)localCallStream.getTracks().forEach(t=>t.stop());
+  localCallStream=null;remoteCallStream=null;currentCallId=null;activeCall=null;
+  $("local-call-video").srcObject=null;$("remote-call-video").srcObject=null;
+  closeCallModal();
+}
+async function finishCall(){
+  const id=currentCallId;
+  try{if(id)await updateDoc(doc(db,"calls",id),{status:"ended",endedAt:serverTimestamp()});}catch{}
+  await cleanupCall();
+}
+function watchCallDoc(callId){
+  activeCallUnsubs.push(onSnapshot(doc(db,"calls",callId),snap=>{
+    if(!snap.exists()||["ended","declined"].includes(snap.data().status)){cleanupCall();return;}
+    const data=snap.data();
+    if(data.status==="connected")$("call-status").textContent=callKind==="video"?"Video call connected":"Voice call connected";
+  }));
+}
+async function preparePeer(callId,role){
+  callPeer=new RTCPeerConnection(rtcConfig);
+  remoteCallStream=new MediaStream();
+  $("remote-call-video").srcObject=remoteCallStream;
+  callPeer.ontrack=e=>e.streams[0].getTracks().forEach(track=>remoteCallStream.addTrack(track));
+  callPeer.onicecandidate=async e=>{
+    if(!e.candidate)return;
+    try{await addDoc(collection(db,"calls",callId,role==="caller"?"callerCandidates":"calleeCandidates"),e.candidate.toJSON());}
+    catch(err){console.warn("Call ICE candidate:",err);}
+  };
+  localCallStream=await navigator.mediaDevices.getUserMedia({audio:true,video:callKind==="video"});
+  localCallStream.getTracks().forEach(track=>callPeer.addTrack(track,localCallStream));
+  $("local-call-video").srcObject=localCallStream;
+  $("local-call-video").hidden=callKind!=="video";
+  $("remote-call-video").hidden=callKind!=="video";
+  activeCallUnsubs.push(onSnapshot(collection(db,"calls",callId,role==="caller"?"calleeCandidates":"callerCandidates"),snap=>{
+    snap.docChanges().forEach(change=>{if(change.type==="added")callPeer?.addIceCandidate(new RTCIceCandidate(change.doc.data())).catch(console.warn);});
+  }));
+}
+async function startOutgoingCall(target,kind){
+  if(!currentUser||!target?.uid)return;
+  if(!navigator.mediaDevices?.getUserMedia||!window.RTCPeerConnection){alert("This browser does not support calls. Open SolexFLIX in Chrome over HTTPS.");return;}
+  callKind=kind;showCallModal("Calling @"+target.username+"…");
+  try{
+    const callRef=doc(callsRef);
+    currentCallId=callRef.id;activeCall={target,role:"caller"};
+    await preparePeer(currentCallId,"caller");
+    const offer=await callPeer.createOffer();await callPeer.setLocalDescription(offer);
+    await setDoc(callRef,{callerUid:currentUser.uid,calleeUid:target.uid,callerName:socialProfile?.username||"creator",calleeName:target.username,kind,status:"ringing",offer:{type:offer.type,sdp:offer.sdp},createdAt:serverTimestamp()});
+    watchCallDoc(currentCallId);
+    activeCallUnsubs.push(onSnapshot(doc(db,"calls",currentCallId),async snap=>{
+      const data=snap.data();if(data?.answer&&!callPeer?.currentRemoteDescription){await callPeer?.setRemoteDescription(new RTCSessionDescription(data.answer));}
+    }));
+  }catch(err){console.error("Call start failed",err);alert("Call could not start: "+err.message+" Check microphone/camera permission and Firebase call rules.");await cleanupCall();}
+}
+async function acceptIncomingCall(callId,data){
+  callKind=data.kind||"audio";currentCallId=callId;activeCall={role:"callee"};
+  showCallModal("Connecting to @"+(data.callerName||"creator")+"…");
+  try{
+    await preparePeer(callId,"callee");
+    await callPeer.setRemoteDescription(new RTCSessionDescription(data.offer));
+    const answer=await callPeer.createAnswer();await callPeer.setLocalDescription(answer);
+    await updateDoc(doc(db,"calls",callId),{answer:{type:answer.type,sdp:answer.sdp},status:"connected"});
+    watchCallDoc(callId);
+  }catch(err){console.error("Accept call failed",err);alert("Could not accept call: "+err.message);await cleanupCall();}
+}
+function subscribeIncomingCalls(){
+  if(!currentUser||isAdmin)return;
+  const q=query(callsRef,where("calleeUid","==",currentUser.uid),where("status","==","ringing"),limit(5));
+  const unsub=onSnapshot(q,snap=>snap.docChanges().forEach(change=>{
+    if(change.type!=="added")return;
+    const data=change.doc.data();
+    if(currentCallId)return;
+    const accept=confirm((data.callerName||"Someone")+" is calling you ("+(data.kind==="video"?"video":"voice")+"). Accept?");
+    if(accept)acceptIncomingCall(change.doc.id,data);
+    else updateDoc(doc(db,"calls",change.doc.id),{status:"declined"}).catch(()=>{});
+  }),err=>console.warn("Incoming call listener:",err));
+  activeCallUnsubs.push(unsub);
+}
+$("call-end-btn")?.addEventListener("click",finishCall);
+$("call-mute-btn")?.addEventListener("click",()=>{
+  const track=localCallStream?.getAudioTracks()[0];if(!track)return;
+  track.enabled=!track.enabled;$("call-mute-btn").textContent=track.enabled?"Mute":"Unmute";
+});
+$("call-camera-btn")?.addEventListener("click",()=>{
+  const track=localCallStream?.getVideoTracks()[0];if(!track)return;
+  track.enabled=!track.enabled;$("call-camera-btn").textContent=track.enabled?"Camera off":"Camera on";
 });
 
 async function openProfileFromUrl(){
