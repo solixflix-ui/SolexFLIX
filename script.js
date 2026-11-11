@@ -1612,39 +1612,39 @@ loadReels();
 const socialSearchInput = $("social-search-input");
 let socialSearchKind = "all";
 function renderSocialSearch() {
-  const q = (socialSearchInput?.value || "").trim().toLowerCase();
-  const host = $("social-search-results");
-  if (!host) return;
-  const reelItems = reels.filter(r => !q || [r.caption,r.creator,r.username].some(v => String(v||"").toLowerCase().includes(q)));
-  const movieItems = movies.filter(m => !q || [m.title,m.category,m.description].some(v => String(v||"").toLowerCase().includes(q)));
-  const showReels = socialSearchKind === "all" || socialSearchKind === "reels";
-  const showMovies = socialSearchKind === "all" || socialSearchKind === "tags";
-  const showAccounts = socialSearchKind === "all" || socialSearchKind === "accounts";
-  const chunks = [];
-  if (showAccounts) chunks.push('<div class="result-section"><h3>Creators</h3><div class="creator-result"><span class="mini-avatar">S</span><div><b>SolexFLIX</b><small>@solexflix · Official</small></div><span class="verified-mark">✓</span></div></div>');
-  if (showReels && reelItems.length) chunks.push('<div class="result-section"><h3>Reels</h3><div class="search-reel-list">'+reelItems.slice(0,12).map(r=>'<button class="search-reel-item" type="button" data-open-reels="1"><span>▶</span><b>'+escapeHTML(r.caption||"Reel")+'</b><small>@'+escapeHTML(r.creator||r.username||"creator")+'</small></button>').join("")+'</div></div>');
-  if (showMovies && movieItems.length) chunks.push('<div class="result-section"><h3>Movies & topics</h3><div class="search-reel-list">'+movieItems.slice(0,12).map(m=>'<div class="search-reel-item"><span>▣</span><b>'+escapeHTML(m.title||"Movie")+'</b><small>'+escapeHTML(m.category||"")+'</small></div>').join("")+'</div></div>');
-  host.innerHTML = chunks.join("") || '<div class="empty-state">No results found. Try another name or keyword.</div>';
+  const q=(socialSearchInput?.value||"").trim().toLowerCase(),host=$("social-search-results");
+  if(!host)return;
+  const reelItems=reels.filter(r=>!q||[r.caption,r.creator,r.username].some(v=>String(v||"").toLowerCase().includes(q)));
+  const movieItems=movies.filter(m=>!q||[m.title,m.category,m.description].some(v=>String(v||"").toLowerCase().includes(q)));
+  const parts=[];
+  if(socialSearchKind==="all"||socialSearchKind==="accounts")parts.push('<div class="result-section"><h3>Creators</h3><div class="creator-result"><span class="mini-avatar">S</span><div><b>SolexFLIX</b><small>@solexflix · Official</small></div><span class="verified-mark">✓</span></div></div>');
+  if((socialSearchKind==="all"||socialSearchKind==="reels")&&reelItems.length)parts.push('<div class="result-section"><h3>Reels</h3><div class="search-reel-list">'+reelItems.slice(0,12).map(r=>'<button class="search-reel-item" type="button" data-open-reels="1"><span>▶</span><b>'+escapeHTML(r.caption||"Reel")+'</b><small>@'+escapeHTML(r.creator||r.username||"creator")+'</small></button>').join("")+'</div></div>');
+  if((socialSearchKind==="all"||socialSearchKind==="tags")&&movieItems.length)parts.push('<div class="result-section"><h3>Movies & topics</h3><div class="search-reel-list">'+movieItems.slice(0,12).map(m=>'<div class="search-reel-item"><span>▣</span><b>'+escapeHTML(m.title||"Movie")+'</b><small>'+escapeHTML(m.category||"")+'</small></div>').join("")+'</div></div>');
+  host.innerHTML=parts.join("")||'<div class="empty-state">No results found. Try another name or keyword.</div>';
 }
-socialSearchInput?.addEventListener("input", renderSocialSearch);
+socialSearchInput?.addEventListener("input",()=>{
+  const term=socialSearchInput.value.trim();
+  if(socialSearchKind==="all"||socialSearchKind==="accounts")searchAccounts(term);
+  else renderSocialSearch();
+});
 document.querySelectorAll(".search-tab").forEach(btn=>btn.addEventListener("click",()=>{
   socialSearchKind=btn.dataset.searchKind||"all";
   document.querySelectorAll(".search-tab").forEach(b=>b.classList.toggle("active",b===btn));
-  renderSocialSearch();
+  if(socialSearchKind==="all"||socialSearchKind==="accounts")searchAccounts(socialSearchInput?.value||"");
+  else renderSocialSearch();
 }));
 $("social-search-results")?.addEventListener("click",e=>{
-  if(e.target.closest("[data-open-reels]")) setActiveAppView("reels-feed");
+  if(e.target.closest("[data-open-reels]"))setActiveAppView("reels-feed");
 });
 $("search-toggle")?.addEventListener("click",()=>setActiveAppView("search-view"));
-$("reels-create-btn")?.addEventListener("click",()=>setActiveAppView("profile-view"));
+$("reels-create-btn")?.addEventListener("click",()=>currentUser&&!isAdmin?setActiveAppView("profile-view"):openSocialAuth("signup"));
 $("bottom-create-btn")?.addEventListener("click",()=>{
-  if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}
-  else {alert("Reel publishing is available from the verified Admin dashboard in this preview.");$("admin-open")?.click();}
+  if(currentUser&&!isAdmin){setActiveAppView("profile-view");$("user-reel-form")?.scrollIntoView({behavior:"smooth",block:"center"});}
+  else if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}
+  else openSocialAuth("signup");
 });
 $("admin-shortcut-btn")?.addEventListener("click",()=> $("admin-open")?.click());
-$("profile-settings-btn")?.addEventListener("click",()=>alert("Account settings will be connected with account authentication in the next backend stage."));
-
-
+$("profile-settings-btn")?.addEventListener("click",()=>alert("Account settings: edit your profile or sign out from this page."));
 
 /* =========================================
    AUTHENTICATED SOLEXFLIX SOCIAL FEATURES
