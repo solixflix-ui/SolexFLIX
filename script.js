@@ -1002,6 +1002,12 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     if(storyUnsubscribe)storyUnsubscribe();
     if(notificationUnsubscribe)notificationUnsubscribe();
+    if(inboxUnsubscribe)inboxUnsubscribe();
+    if(acceptedInboxUnsubscribe)acceptedInboxUnsubscribe();
+    if(activeChatUnsubscribe)activeChatUnsubscribe();
+    inboxUnsubscribe=null;acceptedInboxUnsubscribe=null;activeChatUnsubscribe=null;
+    inboxCache=[];inboxRows=[];acceptedThreadIds=new Set();
+    subscribeStories();
     socialProfile = null;
     viewedProfile = null;
     renderProfilePage();
@@ -1678,15 +1684,19 @@ document.querySelectorAll("[data-reel-feed]").forEach(btn=>btn.addEventListener(
   await loadReels();
 }));
 $("search-toggle")?.addEventListener("click",()=>setActiveAppView("search-view"));
-$("reels-create-btn")?.addEventListener("click",()=>{
+function startCreateReel(){
   if(!currentUser||isAdmin){openSocialAuth("signup");return;}
+  viewedProfile=null;
   setActiveAppView("profile-view");
-  $("user-reel-form")?.scrollIntoView({behavior:"smooth",block:"center"});
-});
+  setTimeout(()=>{
+    $("user-reel-form")?.scrollIntoView({behavior:"smooth",block:"center"});
+    $("user-reel-file")?.click();
+  },120);
+}
+$("reels-create-btn")?.addEventListener("click",startCreateReel);
 $("bottom-create-btn")?.addEventListener("click",()=>{
-  if(currentUser&&!isAdmin){setActiveAppView("profile-view");$("user-reel-form")?.scrollIntoView({behavior:"smooth",block:"center"});}
-  else if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}
-  else openSocialAuth("signup");
+  if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}
+  else startCreateReel();
 });
 $("admin-shortcut-btn")?.addEventListener("click",()=> $("admin-open")?.click());
 $("profile-settings-btn")?.addEventListener("click",()=>alert("Account settings: edit your profile or sign out from this page."));
@@ -1705,6 +1715,10 @@ const notificationsRef = collection(db,"notifications");
 const acceptedChatsRef = collection(db,"acceptedChats");
 let activeInboxFilter="primary";
 let inboxRows=[];
+let inboxCache=[];
+let inboxUnsubscribe=null;
+let acceptedInboxUnsubscribe=null;
+let acceptedThreadIds=new Set();
 let storyUnsubscribe = null;
 let userSearchResults = [];
 
@@ -2070,25 +2084,36 @@ $("social-search-results")?.addEventListener("click",async e=>{
   }catch(err){alert("Follow update failed: "+err.message);}
 });
 
-async function loadInbox(){
+function rebuildInboxFromSnapshot(messageDocs){
+  const latest=new Map();
+  messageDocs.forEach(d=>{
+    const m=d.data(),other=m.senderUid===currentUser.uid?m.recipientUid:m.senderUid;
+    const name=m.senderUid===currentUser.uid?m.recipientUsername:m.senderUsername;
+    const previous=latest.get(other);
+    if(!previous||(m.createdAt?.seconds||0)>(previous.createdAt?.seconds||0))
+      latest.set(other,{uid:other,username:name||"creator",text:m.text||"",createdAt:m.createdAt,threadId:m.threadId,lastSenderUid:m.senderUid});
+  });
+  inboxRows=[...latest.values()].map(row=>({...row,request:!acceptedThreadIds.has(row.threadId)&&row.lastSenderUid!==currentUser.uid}));
+  renderInbox();
+}
+function loadInbox(){
+  if(inboxUnsubscribe){inboxUnsubscribe();inboxUnsubscribe=null;}
+  if(acceptedInboxUnsubscribe){acceptedInboxUnsubscribe();acceptedInboxUnsubscribe=null;}
   if(!currentUser||isAdmin)return;
-  try{
-    const [inboxSnap,acceptedSnap]=await Promise.all([
-      getDocs(query(messagesRef,where("participants","array-contains",currentUser.uid),limit(120))),
-      getDocs(query(acceptedChatsRef,where("uid","==",currentUser.uid),limit(120)))
-    ]);
-    const accepted=new Set(acceptedSnap.docs.map(d=>d.data().threadId));
-    const latest=new Map();
-    inboxSnap.docs.forEach(d=>{
-      const m=d.data(),other=m.senderUid===currentUser.uid?m.recipientUid:m.senderUid;
-      const name=m.senderUid===currentUser.uid?m.recipientUsername:m.senderUsername;
-      const previous=latest.get(other);
-      if(!previous||(m.createdAt?.seconds||0)>(previous.createdAt?.seconds||0))
-        latest.set(other,{uid:other,username:name||"creator",text:m.text||"",createdAt:m.createdAt,threadId:m.threadId,lastSenderUid:m.senderUid});
-    });
-    inboxRows=[...latest.values()].map(row=>({...row,request:!accepted.has(row.threadId)&&row.lastSenderUid!==currentUser.uid}));
-    renderInbox();
-  }catch(err){console.warn("Inbox load:",err);const host=$("conversation-list");if(host)host.innerHTML='<div class="empty-state">Inbox permissions need to be enabled in Firebase.</div>';}
+  const inboxQuery=query(messagesRef,where("participants","array-contains",currentUser.uid),limit(120));
+  const acceptedQuery=query(acceptedChatsRef,where("uid","==",currentUser.uid),limit(120));
+  acceptedInboxUnsubscribe=onSnapshot(acceptedQuery,snap=>{
+    acceptedThreadIds=new Set(snap.docs.map(d=>d.data().threadId));
+    rebuildInboxFromSnapshot(inboxCache);
+  },err=>console.warn("Accepted chats:",err));
+  inboxUnsubscribe=onSnapshot(inboxQuery,snap=>{
+    inboxCache=snap.docs;
+    rebuildInboxFromSnapshot(inboxCache);
+  },err=>{
+    console.warn("Inbox load:",err);
+    const host=$("conversation-list");
+    if(host)host.innerHTML='<div class="empty-state">Inbox permissions need to be enabled in Firebase.</div>';
+  });
 }
 function renderInbox(){
   const host=$("conversation-list");if(!host)return;
@@ -2135,7 +2160,7 @@ async function openDirectMessage(username){
     $("chat-compose").addEventListener("submit",async ev=>{
       ev.preventDefault();const input=$("chat-message-input"),value=input.value.trim();if(!value)return;
       input.disabled=true;
-      try{await addDoc(messagesRef,{threadId,participants:[currentUser.uid,target.uid],senderUid:currentUser.uid,recipientUid:target.uid,senderUsername:socialProfile?.username||"creator",recipientUsername:target.username||"creator",text:value,createdAt:serverTimestamp()});input.value="";}
+      try{await addDoc(messagesRef,{threadId,participants:[currentUser.uid,target.uid],senderUid:currentUser.uid,recipientUid:target.uid,senderUsername:socialProfile?.username||"creator",recipientUsername:target.username||"creator",text:value,createdAt:serverTimestamp()});await notifyUser(target.uid,"message","sent you a message");input.value="";}
       catch(err){alert("Message failed: "+err.message);}finally{input.disabled=false;input.focus();}
     });
   }catch(err){alert("Could not open chat: "+err.message);}
