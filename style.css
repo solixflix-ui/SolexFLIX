@@ -1587,9 +1587,6 @@ input:focus, textarea:focus, select:focus { border-color: #c05bff; }
    SOLEXFLIX FULL-SCREEN VERTICAL REELS FEED
 ========================================= */
 body { overflow-x:hidden; }
-#website-section > .hero,
-#website-section > .search-area,
-#website-section > .movie-section { display:none !important; }
 #website-section { min-height:calc(100dvh - 66px); }
 .reels-page { width:100%; padding:0 12px 18px; box-sizing:border-box; }
 .reels-heading {
@@ -1658,4 +1655,54 @@ body { overflow-x:hidden; }
 .reel-ad-card .ad-slot-home iframe { max-width:100%; }
 @media (max-width:600px) {
   .reel-ad-card { min-height:400px; }
+}
+
+
+/* Instagram-style app navigation and separate Home / Reels / Messages / Profile views */
+.app-topbar { min-height:58px; padding:10px 18px; }
+.topbar-actions { display:flex; align-items:center; gap:12px; }
+.topbar-actions button { border:0; background:transparent; color:#fff; font-size:22px; }
+.app-view { display:block; }
+.home-view { padding-bottom:84px; }
+.reels-page { display:none; padding:0; }
+body[data-active-view="reels-feed"] #reels-feed { display:block; }
+body[data-active-view="reels-feed"] #home-view,
+body[data-active-view="reels-feed"] #messages-view,
+body[data-active-view="reels-feed"] #profile-view { display:none !important; }
+body[data-active-view="home-view"] #reels-feed,
+body[data-active-view="home-view"] #messages-view,
+body[data-active-view="home-view"] #profile-view { display:none !important; }
+body[data-active-view="messages-view"] #reels-feed,
+body[data-active-view="messages-view"] #home-view,
+body[data-active-view="messages-view"] #profile-view { display:none !important; }
+body[data-active-view="profile-view"] #reels-feed,
+body[data-active-view="profile-view"] #home-view,
+body[data-active-view="profile-view"] #messages-view { display:none !important; }
+.reels-heading { width:100%; min-height:64px; padding:0 18px; box-sizing:border-box; display:flex; justify-content:center; position:relative; }
+.reels-plus { position:absolute; left:20px; top:50%; transform:translateY(-50%); font-size:38px; font-weight:300; }
+.reels-tabs { display:flex; align-items:center; gap:28px; }
+.reels-tab { border:0; background:none; color:#aeb0b7; font-size:22px; font-weight:750; }
+.reels-tab:first-child { color:#fff; }
+.friends-stack { font-size:20px; letter-spacing:-8px; color:#aab2c2; margin-left:-18px; }
+.reels-container { height:calc(100dvh - 184px); min-height:360px; border-radius:0; }
+.bottom-nav { position:fixed; z-index:1000; left:0; right:0; bottom:0; height:66px; padding:5px 8px max(5px, env(safe-area-inset-bottom)); box-sizing:content-box; display:flex; align-items:center; justify-content:space-around; background:rgba(9,12,15,.98); border-top:1px solid rgba(255,255,255,.08); }
+.bottom-nav-btn { flex:1; height:58px; display:flex; align-items:center; justify-content:center; border:0; background:transparent; color:#f6f6f6; }
+.nav-icon { width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-size:33px; line-height:1; }
+.reels-nav-icon { width:30px; height:30px; border-radius:8px; border:2px solid currentColor; font-size:16px; padding-left:2px; }
+.bottom-nav-btn.active .reels-nav-icon { background:#fff; color:#090c0f; }
+.profile-nav-icon { border:2px solid #888; border-radius:50%; font-size:19px; }
+.utility-view { min-height:calc(100dvh - 140px); padding:30px 20px 100px; box-sizing:border-box; }
+.utility-inner { width:min(100%,520px); margin:0 auto; text-align:center; }
+.utility-inner h1 { font-size:27px; }
+.utility-inner p { color:#a7a7b2; }
+.utility-empty { margin-top:34px; padding:35px 15px; border:1px solid #292932; border-radius:18px; color:#a7a7b2; }
+.profile-avatar { width:84px; height:84px; margin:25px auto 10px; border-radius:50%; display:grid; place-items:center; background:linear-gradient(135deg,#ff477e,#8b5cf6); font-size:36px; font-weight:800; }
+.profile-stats { display:flex; justify-content:center; gap:28px; margin:24px 0; color:#aaa; }
+.profile-stats strong { display:block; color:white; font-size:19px; }
+body { padding-bottom:0; }
+@media(max-width:600px) {
+ .app-topbar { display:none; }
+ .reels-container { height:calc(100dvh - 138px); min-height:360px; }
+ .reels-heading { min-height:66px; }
+ .bottom-nav { height:62px; }
 }
