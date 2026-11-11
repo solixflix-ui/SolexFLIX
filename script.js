@@ -9,6 +9,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -21,6 +23,13 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  setDoc,
+  getDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -68,6 +77,10 @@ let currentUser = null;
 let isAdmin = false;
 let movies = [];
 let editingMovieId = null;
+let socialAuthMode = "login";
+let activeChatUnsubscribe = null;
+let activeConversationUser = null;
+let socialProfile = null;
 
 
 /* =========================================
@@ -963,11 +976,6 @@ onAuthStateChanged(auth, async (user) => {
   isAdmin = !!user &&
     user.email?.toLowerCase() === ADMIN_EMAIL;
 
-  if (user && !isAdmin) {
-    await signOut(auth);
-    return;
-  }
-
   if (isAdmin) {
     showAdminDashboard();
   } else {
@@ -975,6 +983,14 @@ onAuthStateChanged(auth, async (user) => {
     hideSection(loginSection);
     hideSection(detailsSection);
     showSection(websiteSection);
+  }
+  updateAccountControls();
+  if (user && !isAdmin) {
+    await loadSocialProfile(user);
+    subscribeStories();
+  } else {
+    socialProfile = null;
+    renderProfilePage();
   }
 });
 
@@ -1672,3 +1688,225 @@ document.querySelectorAll(".profile-content-tab").forEach(btn=>btn.addEventListe
     ? reels.map(r=>'<div class="profile-reel-tile"><span>▶</span><small>'+escapeHTML(r.caption||"Reel")+'</small></div>').join("")
     : '<div class="empty-state">Nothing here yet. Your '+escapeHTML(btn.dataset.profileTab)+' will appear here.</div>';
 }));
+
+
+/* =========================================
+   AUTHENTICATED SOLEXFLIX SOCIAL FEATURES
+   Firestore collections: users, follows, stories,
+   messages, comments, videos.
+========================================= */
+const usersRef = collection(db,"users");
+const followsRef = collection(db,"follows");
+const storiesRef = collection(db,"stories");
+const messagesRef = collection(db,"messages");
+const commentsRef = collection(db,"comments");
+let storyUnsubscribe = null;
+let userSearchResults = [];
+
+function updateAccountControls(){
+  const signed=!!currentUser && !isAdmin;
+  const button=$("account-open");
+  if(button)button.textContent=signed ? (socialProfile?.username ? "@"+socialProfile.username : "Account") : "Sign in";
+  if($("profile-signout-btn"))$("profile-signout-btn").hidden=!signed;
+  if($("profile-display-name") && signed && socialProfile?.displayName)$("profile-display-name").textContent=socialProfile.displayName;
+}
+function openSocialAuth(mode="login"){
+  socialAuthMode=mode;
+  $("social-auth-modal").hidden=false;
+  document.querySelectorAll(".auth-mode").forEach(b=>b.classList.toggle("active",b.dataset.authMode===mode));
+  $("social-auth-title").textContent=mode==="signup"?"Create your SolexFLIX account":"Welcome back";
+  $("social-auth-name").hidden=mode!=="signup";
+  $("social-auth-username").hidden=mode!=="signup";
+  $("social-auth-submit").textContent=mode==="signup"?"Create account":"Log in";
+  $("social-auth-password").autocomplete=mode==="signup"?"new-password":"current-password";
+  showMessage($("social-auth-message"),"");
+}
+$("account-open")?.addEventListener("click",()=>currentUser&&!isAdmin?setActiveAppView("profile-view"):openSocialAuth("login"));
+$("close-social-auth")?.addEventListener("click",()=>$("social-auth-modal").hidden=true);
+document.querySelectorAll(".auth-mode").forEach(b=>b.addEventListener("click",()=>openSocialAuth(b.dataset.authMode)));
+$("social-auth-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const email=$("social-auth-email").value.trim().toLowerCase();
+  const password=$("social-auth-password").value;
+  const username=$("social-auth-username").value.trim().toLowerCase().replace(/^@/,"");
+  const name=$("social-auth-name").value.trim();
+  const submit=$("social-auth-submit");
+  if(socialAuthMode==="signup" && !/^[a-z0-9._]{3,24}$/.test(username)){
+    showMessage($("social-auth-message"),"Username: 3–24 letters, numbers, dot or underscore.");return;
+  }
+  submit.disabled=true;
+  try{
+    if(socialAuthMode==="signup"){
+      const existing=await getDocs(query(usersRef,where("username","==",username),limit(1)));
+      if(!existing.empty)throw new Error("This username is already taken.");
+      const credential=await createUserWithEmailAndPassword(auth,email,password);
+      await updateProfile(credential.user,{displayName:name||username});
+      const profile={uid:credential.user.uid,username,displayName:name||username,email, bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
+      await setDoc(doc(db,"users",credential.user.uid),profile);
+      socialProfile=profile;
+    }else{
+      await signInWithEmailAndPassword(auth,email,password);
+    }
+    $("social-auth-modal").hidden=true;
+    $("social-auth-form").reset();
+    setActiveAppView("profile-view");
+  }catch(error){
+    console.error("Social authentication:",error);
+    showMessage($("social-auth-message"),error.message||"Could not sign in.");
+  }finally{submit.disabled=false;}
+});
+async function loadSocialProfile(user){
+  try{
+    const snap=await getDoc(doc(db,"users",user.uid));
+    if(snap.exists())socialProfile={uid:user.uid,...snap.data()};
+    else{
+      const fallback={uid:user.uid,username:(user.email||"creator").split("@")[0].toLowerCase().replace(/[^a-z0-9._]/g,"").slice(0,24),displayName:user.displayName||"Creator",email:user.email||"",bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
+      socialProfile=fallback;
+      await setDoc(doc(db,"users",user.uid),fallback,{merge:true});
+    }
+  }catch(error){console.warn("Profile load failed",error);socialProfile={uid:user.uid,username:user.displayName||"creator",displayName:user.displayName||"Creator",bio:""};}
+  updateAccountControls();renderProfilePage();renderSocialSearch();
+}
+function renderProfilePage(){
+  const p=socialProfile;
+  if($("profile-avatar"))$("profile-avatar").textContent=(p?.displayName||p?.username||"S").charAt(0).toUpperCase();
+  if($("profile-display-name"))$("profile-display-name").textContent=p?.displayName||"SolexFLIX Creator";
+  if($("profile-handle"))$("profile-handle").textContent="@"+(p?.username||"solexflix");
+  if($("profile-bio"))$("profile-bio").textContent=p?.bio||"Movies, moments and people.";
+  if($("profile-follower-count"))$("profile-follower-count").textContent="…";
+  if($("profile-following-count"))$("profile-following-count").textContent="…";
+  if(p?.uid){
+    Promise.all([
+      getDocs(query(followsRef,where("followingUid","==",p.uid))),
+      getDocs(query(followsRef,where("followerUid","==",p.uid)))
+    ]).then(([followers,following])=>{
+      $("profile-follower-count").textContent=followers.size;
+      $("profile-following-count").textContent=following.size;
+    }).catch(()=>{});
+  }else{
+    if($("profile-follower-count"))$("profile-follower-count").textContent="0";
+    if($("profile-following-count"))$("profile-following-count").textContent="0";
+  }
+}
+$("profile-signout-btn")?.addEventListener("click",async()=>{if(activeChatUnsubscribe)activeChatUnsubscribe();await signOut(auth);setActiveAppView("home-view");});
+$("edit-profile-btn")?.addEventListener("click",async()=>{
+  if(!currentUser||isAdmin){openSocialAuth("login");return;}
+  const displayName=prompt("Display name",socialProfile?.displayName||"");
+  if(displayName===null)return;
+  const bio=prompt("Profile bio",socialProfile?.bio||"");
+  if(bio===null)return;
+  const username=prompt("Username (3–24 characters)",socialProfile?.username||"");
+  if(username===null)return;
+  const clean=username.trim().toLowerCase().replace(/^@/,"");
+  if(!/^[a-z0-9._]{3,24}$/.test(clean)){alert("Invalid username.");return;}
+  try{
+    const found=await getDocs(query(usersRef,where("username","==",clean),limit(2)));
+    if(found.docs.some(d=>d.id!==currentUser.uid)){alert("Username already taken.");return;}
+    await setDoc(doc(db,"users",currentUser.uid),{username:clean,displayName:displayName.trim().slice(0,40),bio:bio.trim().slice(0,160)},{merge:true});
+    await updateProfile(currentUser,{displayName:displayName.trim().slice(0,40)});
+    await loadSocialProfile(currentUser);
+  }catch(err){alert("Profile update failed: "+err.message);}
+});
+async function subscribeStories(){
+  if(storyUnsubscribe)storyUnsubscribe();
+  try{
+    const q=query(storiesRef,orderBy("createdAt","desc"),limit(30));
+    storyUnsubscribe=onSnapshot(q,snap=>{
+      const host=$("stories-list");if(!host)return;
+      const active=snap.docs.filter(d=>{const t=d.data().createdAt?.toMillis?.()||0;return !t||Date.now()-t<86400000;});
+      host.innerHTML=active.map(d=>{
+        const x=d.data();return '<button class="story-item" type="button" data-story-url="'+escapeHTML(x.mediaUrl||"")+'" data-story-user="'+escapeHTML(x.username||"creator")+'"><span class="story-ring"><span class="mini-avatar">'+escapeHTML((x.username||"S").charAt(0).toUpperCase())+'</span></span><small>'+escapeHTML(x.username||"creator")+'</small></button>';
+      }).join("")||'<div class="stories-loading">No stories yet — be the first to share.</div>';
+    },err=>console.warn("Stories feed:",err));
+  }catch(err){console.warn(err);}
+}
+$("story-add-btn")?.addEventListener("click",async()=>{
+  if(!currentUser||isAdmin){openSocialAuth("signup");return;}
+  const mediaUrl=prompt("Paste a direct image or video URL for your 24-hour story:");
+  if(!mediaUrl)return;
+  try{
+    const u=new URL(mediaUrl);if(!["http:","https:"].includes(u.protocol))throw new Error("Use a valid https URL.");
+    await addDoc(storiesRef,{uid:currentUser.uid,username:socialProfile?.username||"creator",mediaUrl:u.href,createdAt:serverTimestamp()});
+  }catch(err){alert("Story could not be published: "+err.message);}
+});
+$("stories-list")?.addEventListener("click",e=>{
+  const item=e.target.closest("[data-story-url]");if(!item)return;
+  const url=item.dataset.storyUrl;window.open(url,"_blank","noopener,noreferrer");
+});
+$("user-reel-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!currentUser||isAdmin){openSocialAuth("signup");return;}
+  try{
+    const u=new URL($("user-reel-url").value.trim());
+    if(!["http:","https:"].includes(u.protocol))throw new Error("Invalid video URL.");
+    await addDoc(videosRef,{videoUrl:u.href,caption:$("user-reel-caption").value.trim(),creator:socialProfile?.username||"creator",creatorUid:currentUser.uid,likes:0,createdAt:serverTimestamp(),status:"published"});
+    $("user-reel-form").reset();await loadReels();renderProfilePage();alert("Your Reel is published.");
+  }catch(err){alert("Reel publish failed: "+err.message);}
+});
+$("profile-content-grid")?.addEventListener("click",e=>{
+  const tile=e.target.closest(".profile-reel-tile");if(tile)setActiveAppView("reels-feed");
+});
+$("share-profile-btn")?.addEventListener("click",async()=>{
+  const username=socialProfile?.username||"solexflix";
+  const url=location.origin+location.pathname+"?user="+encodeURIComponent(username);
+  try{if(navigator.share)await navigator.share({title:"SolexFLIX",text:"Follow @"+username,url});else{await navigator.clipboard.writeText(url);alert("Profile link copied.");}}catch{}
+});
+async function searchAccounts(term){
+  const host=$("social-search-results");if(!host)return;
+  if(!term.trim()){renderSocialSearch();return;}
+  try{
+    const q=query(usersRef,orderBy("username"),limit(30));
+    const snap=await getDocs(q);
+    userSearchResults=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>(p.username||"").toLowerCase().includes(term.toLowerCase())||(p.displayName||"").toLowerCase().includes(term.toLowerCase()));
+    host.innerHTML=userSearchResults.map(p=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((p.displayName||p.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(p.displayName||p.username)+'</b><small>@'+escapeHTML(p.username||"creator")+'</small></div><button class="follow-action" data-follow-uid="'+escapeHTML(p.uid)+'" data-follow-name="'+escapeHTML(p.username||"creator")+'">Follow</button></div>').join("")||'<div class="empty-state">No accounts found.</div>';
+  }catch(err){host.innerHTML='<div class="empty-state">Account search needs Firestore user read permissions.</div>';console.warn(err);}
+}
+socialSearchInput?.addEventListener("input",()=>{
+  const term=socialSearchInput.value.trim();
+  if(socialSearchKind==="accounts"||socialSearchKind==="all")searchAccounts(term);
+  else renderSocialSearch();
+});
+$("social-search-results")?.addEventListener("click",async e=>{
+  const btn=e.target.closest("[data-follow-uid]");if(!btn)return;
+  if(!currentUser||isAdmin){openSocialAuth("login");return;}
+  const target=btn.dataset.followUid;if(target===currentUser.uid)return;
+  const followId=currentUser.uid+"_"+target;
+  try{
+    const ref=doc(db,"follows",followId),snap=await getDoc(ref);
+    if(snap.exists()){await deleteDoc(ref);btn.textContent="Follow";}
+    else{await setDoc(ref,{followerUid:currentUser.uid,followingUid:target,createdAt:serverTimestamp()});btn.textContent="Following";}
+  }catch(err){alert("Follow update failed: "+err.message);}
+});
+async function openDirectMessage(username){
+  if(!currentUser||isAdmin){openSocialAuth("login");return;}
+  const clean=username.trim().replace(/^@/,"").toLowerCase();
+  try{
+    const snap=await getDocs(query(usersRef,where("username","==",clean),limit(1)));
+    if(snap.empty){alert("Account not found.");return;}
+    const target={uid:snap.docs[0].id,...snap.docs[0].data()};
+    if(target.uid===currentUser.uid){alert("This is your own account.");return;}
+    activeConversationUser=target;
+    setActiveAppView("messages-view");
+    $("chat-panel").innerHTML='<div class="chat-header"><span class="mini-avatar">'+escapeHTML((target.username||"S").charAt(0).toUpperCase())+'</span><b>@'+escapeHTML(target.username)+'</b></div><div class="chat-messages" id="chat-messages"></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" maxlength="2000" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
+    const participants=[currentUser.uid,target.uid].sort();
+    const threadId=participants.join("_");
+    if(activeChatUnsubscribe)activeChatUnsubscribe();
+    activeChatUnsubscribe=onSnapshot(query(messagesRef,where("threadId","==",threadId),orderBy("createdAt","asc"),limit(100)),snap=>{
+      const box=$("chat-messages");if(!box)return;
+      box.innerHTML=snap.docs.map(d=>{const m=d.data();return '<div class="chat-bubble '+(m.senderUid===currentUser.uid?"own":"")+'">'+escapeHTML(m.text||"")+'</div>';}).join("");
+      box.scrollTop=box.scrollHeight;
+    },err=>console.warn("Message listener",err));
+    $("chat-compose").addEventListener("submit",async ev=>{
+      ev.preventDefault();const input=$("chat-message-input"),value=input.value.trim();if(!value)return;
+      input.disabled=true;
+      try{await addDoc(messagesRef,{threadId,senderUid:currentUser.uid,recipientUid:target.uid,text:value,createdAt:serverTimestamp()});input.value="";}
+      catch(err){alert("Message failed: "+err.message);}finally{input.disabled=false;input.focus();}
+    });
+  }catch(err){alert("Could not open chat: "+err.message);}
+}
+$("new-message-btn")?.addEventListener("click",()=>{const who=prompt("Enter username to message:");if(who)openDirectMessage(who);});
+$("start-chat-btn")?.addEventListener("click",()=>{const who=prompt("Enter username to message:");if(who)openDirectMessage(who);});
+$("social-search-results")?.addEventListener("dblclick",e=>{
+  const row=e.target.closest(".creator-result");const name=row?.querySelector("small")?.textContent?.replace("@","");
+  if(name)openDirectMessage(name);
+});
