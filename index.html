@@ -52,15 +52,12 @@
 <body>
 
   <!-- NAVBAR -->
-  <header class="navbar">
-    <a href="#" class="logo">Solex<span>FLIX</span></a>
-
-    <nav class="nav-links">
-      <a href="#reels-feed">Reels</a>
-      <a href="#reels-feed">Funny Feed</a>
-      <button id="search-toggle" type="button">Search</button>
+  <header class="navbar app-topbar">
+    <a href="#" class="logo" id="brand-home">Solex<span>FLIX</span></a>
+    <div class="topbar-actions">
+      <button id="search-toggle" type="button" aria-label="Search">⌕</button>
       <button id="admin-open" type="button" class="admin-btn">Admin</button>
-    </nav>
+    </div>
   </header>
 
   <!-- WEBSITE -->
@@ -69,14 +66,15 @@
     <!-- SOLEXFLIX VERTICAL REELS FEED -->
     <section id="reels-feed" class="reels-page" aria-label="Funny video feed">
       <div class="reels-heading">
-        <div><span class="reels-kicker">STRESS REMOVING</span><h1>For You</h1></div>
-        <span class="reels-brand">Solex<span>FLIX</span></span>
+        <span class="reels-plus" aria-hidden="true">＋</span>
+        <div class="reels-tabs"><button class="reels-tab" type="button">Reels</button><button class="reels-tab friends-tab" type="button">Friends</button><span class="friends-stack" aria-hidden="true">● ● ●</span></div>
       </div>
       <div id="reels-container" class="reels-container">
         <div class="reels-empty"><strong>Your funny feed is getting ready…</strong><p>Admin can publish the first reel from the dashboard.</p></div>
       </div>
     </section>
 
+    <div id="home-view" class="app-view home-view">
     <!-- HERO -->
     <section class="hero" id="home">
       <div class="hero-content">
@@ -171,8 +169,19 @@
       <div id="movie-pagination" class="movie-pagination" aria-label="Movie pages"></div>
       <p id="empty-message" hidden>No movies available yet.</p>
     </section>
+    </div>
+
+    <section id="messages-view" class="app-view utility-view" hidden><div class="utility-inner"><h1>Messages</h1><p>Your conversations will appear here.</p><div class="utility-empty">No messages yet</div></div></section>
+    <section id="profile-view" class="app-view utility-view" hidden><div class="utility-inner"><div class="profile-avatar">S</div><h1>@solexflix</h1><p>Welcome to your SolexFLIX profile.</p><div class="profile-stats"><span><strong id="profile-reel-count">0</strong> Reels</span><span><strong>0</strong> Followers</span><span><strong>0</strong> Following</span></div><div class="utility-empty">Your published Reels will appear here.</div></div></section>
 
   </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button type="button" class="bottom-nav-btn active" data-view="home-view" aria-label="Home"><span class="nav-icon">⌂</span></button>
+    <button type="button" class="bottom-nav-btn" data-view="reels-feed" aria-label="Reels"><span class="nav-icon reels-nav-icon">▶</span></button>
+    <button type="button" class="bottom-nav-btn" data-view="messages-view" aria-label="Messaging"><span class="nav-icon">➤</span></button>
+    <button type="button" class="bottom-nav-btn" data-view="profile-view" aria-label="Profile"><span class="nav-icon profile-nav-icon">●</span></button>
+  </nav>
 
   <!-- MOVIE DETAILS -->
   <section id="details-section" hidden>
