@@ -1851,8 +1851,6 @@ $("user-reel-form")?.addEventListener("submit",async e=>{
 $("profile-content-grid")?.addEventListener("click",e=>{
   const tile=e.target.closest(".profile-reel-tile");if(tile)setActiveAppView("reels-feed");
 });
-else{await navigator.clipboard.writeText(url);alert("Profile link copied.");}}catch{}
-});
 async function searchAccounts(term){
   const host=$("social-search-results");if(!host)return;
   if(!term.trim()){renderSocialSearch();return;}
