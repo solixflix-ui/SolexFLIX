@@ -1612,6 +1612,7 @@ function setActiveAppView(viewId) {
   }
   if (viewId === "search-view") renderSocialSearch();
   if (viewId === "profile-view") {
+    if(!viewedProfile)renderProfilePage();
     const count = document.querySelectorAll("#reels-container .reel-card").length;
     const countNode = $("profile-reel-count");
     if (countNode) countNode.textContent = String(count);
@@ -1619,7 +1620,7 @@ function setActiveAppView(viewId) {
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 document.querySelectorAll(".bottom-nav-btn").forEach((button) => {
-  button.addEventListener("click", () => setActiveAppView(button.dataset.view));
+  button.addEventListener("click", () => { if(button.dataset.view==="profile-view")viewedProfile=null; setActiveAppView(button.dataset.view); });
 });
 $("brand-home")?.addEventListener("click", (event) => {
   event.preventDefault();
@@ -1926,12 +1927,11 @@ $("profile-content-grid")?.addEventListener("click",e=>{
 });
 async function searchAccounts(term){
   const host=$("social-search-results");if(!host)return;
-  if(!term.trim()){renderSocialSearch();return;}
   try{
     const q=query(usersRef,orderBy("username"),limit(100));
     const snap=await getDocs(q);
     userSearchResults=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>!term||(p.username||"").toLowerCase().includes(term.toLowerCase())||(p.displayName||"").toLowerCase().includes(term.toLowerCase()));
-    host.innerHTML=userSearchResults.map(p=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((p.displayName||p.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(p.displayName||p.username)+'</b><small>@'+escapeHTML(p.username||"creator")+'</small></div><button class="profile-view-action" data-profile-uid="'+escapeHTML(p.uid)+'">View</button><button class="follow-action" data-follow-uid="'+escapeHTML(p.uid)+'" data-follow-name="'+escapeHTML(p.username||"creator")+'">Follow</button></div>').join("")||'<div class="empty-state">No accounts found.</div>';
+    host.innerHTML=userSearchResults.map(p=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((p.displayName||p.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(p.displayName||p.username)+'</b><small>@'+escapeHTML(p.username||"creator")+'</small></div><button class="profile-view-action" data-profile-uid="'+escapeHTML(p.uid)+'">View</button><button class="profile-view-action" data-message-username="'+escapeHTML(p.username||"creator")+'">Message</button><button class="follow-action" data-follow-uid="'+escapeHTML(p.uid)+'" data-follow-name="'+escapeHTML(p.username||"creator")+'">Follow</button></div>').join("")||'<div class="empty-state">No accounts found.</div>';
   }catch(err){host.innerHTML='<div class="empty-state">Account search needs Firestore user read permissions.</div>';console.warn(err);}
 }
 socialSearchInput?.addEventListener("input",()=>{
@@ -1940,6 +1940,7 @@ socialSearchInput?.addEventListener("input",()=>{
   else renderSocialSearch();
 });
 $("social-search-results")?.addEventListener("click",async e=>{
+  const messageBtn=e.target.closest("[data-message-username]");if(messageBtn){openDirectMessage(messageBtn.dataset.messageUsername);return;}
   const view=e.target.closest("[data-profile-uid]");if(view){openPublicProfile(view.dataset.profileUid);return;}
   const btn=e.target.closest("[data-follow-uid]");if(!btn)return;
   if(!currentUser||isAdmin){openSocialAuth("login");return;}
