@@ -1415,6 +1415,14 @@ function reelMarkup(reel) {
 function setupReelPlayback() {
   if (reelsObserver) reelsObserver.disconnect();
   const cards = document.querySelectorAll(".reel-card");
+  cards.forEach(card => {
+    const video = card.querySelector("video");
+    if (video && !video.dataset.reelStateBound) {
+      video.dataset.reelStateBound = "1";
+      video.addEventListener("play", () => card.classList.remove("is-paused"));
+      video.addEventListener("pause", () => card.classList.add("is-paused"));
+    }
+  });
   if (!("IntersectionObserver" in window)) {
     cards.forEach(card => { const v=card.querySelector("video"); v?.play().catch(()=>{}); });
     return;
