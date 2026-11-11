@@ -1166,6 +1166,7 @@ if (movieForm) {
       }
 
       await loadMovies();
+loadReels();
 
     } catch (error) {
       console.error("Save movie error:", error);
@@ -1367,6 +1368,151 @@ if ($("logout-btn")) {
   });
 }
 
+
+
+
+// =========================================
+// SOLEXFLIX REELS FEED
+// Reels are read from Firestore collection "videos".
+// Video files must be hosted at an authorized direct URL.
+const videosRef = collection(db, "videos");
+let reels = [];
+let reelsObserver = null;
+
+function safeVideoUrl(value = "") {
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+  } catch { return ""; }
+}
+
+function reelMarkup(reel) {
+  const src = safeVideoUrl(reel.videoUrl || reel.video || reel.url || "");
+  if (!src) return "";
+  const id = escapeHTML(reel.id);
+  const caption = escapeHTML(reel.caption || reel.description || "A little laugh for your day");
+  const creator = escapeHTML(reel.creator || reel.username || "SolexFLIX");
+  const liked = (JSON.parse(localStorage.getItem("solexflix_liked_reels") || "[]")).includes(reel.id);
+  const likes = Math.max(0, Number(reel.likes || 0)) + (liked ? 1 : 0);
+  return `
+    <article class="reel-card" data-reel-id="${id}">
+      <video class="reel-video" src="${escapeHTML(src)}" playsinline loop muted preload="metadata"></video>
+      <div class="reel-shade"></div>
+      <button class="reel-sound" type="button" data-reel-action="sound" aria-label="Toggle sound">🔇</button>
+      <div class="reel-details">
+        <div class="reel-creator">@${creator.replace(/^@/,"")}</div>
+        <p>${caption}</p>
+        <span class="reel-audio">♫ Original audio · SolexFLIX</span>
+      </div>
+      <div class="reel-actions">
+        <button type="button" data-reel-action="like" class="${liked ? "is-liked" : ""}"><span>♥</span><small>${likes}</small></button>
+        <button type="button" data-reel-action="comment"><span>●</span><small>Comment</small></button>
+        <button type="button" data-reel-action="share"><span>↗</span><small>Share</small></button>
+      </div>
+      <button class="reel-play-toggle" type="button" data-reel-action="play" aria-label="Play or pause">▶</button>
+    </article>`;
+}
+
+function setupReelPlayback() {
+  if (reelsObserver) reelsObserver.disconnect();
+  const cards = document.querySelectorAll(".reel-card");
+  if (!("IntersectionObserver" in window)) {
+    cards.forEach(card => { const v=card.querySelector("video"); v?.play().catch(()=>{}); });
+    return;
+  }
+  reelsObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const video = entry.target.querySelector("video");
+      if (!video) return;
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+        document.querySelectorAll(".reel-video").forEach(other => {
+          if (other !== video) { other.pause(); other.muted = true; }
+        });
+        video.play().catch(()=>{});
+      } else {
+        video.pause();
+      }
+    });
+  }, { threshold: [0, 0.7, 1] });
+  cards.forEach(card => reelsObserver.observe(card));
+}
+
+async function loadReels() {
+  const container = $("reels-container");
+  if (!container) return;
+  try {
+    const snap = await getDocs(videosRef);
+    reels = snap.docs.map(d => ({ id:d.id, ...d.data() }))
+      .filter(r => safeVideoUrl(r.videoUrl || r.video || r.url))
+      .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    container.innerHTML = reels.length
+      ? reels.map(reelMarkup).join("")
+      : '<div class="reels-empty"><strong>No reels yet</strong><p>Admin dashboard se pehla funny video publish karo.</p></div>';
+    setupReelPlayback();
+  } catch (error) {
+    console.error("Reels load error:", error);
+    container.innerHTML = '<div class="reels-empty"><strong>Reels load nahi ho paaye</strong><p>Firestore "videos" collection permissions check karein.</p></div>';
+  }
+}
+
+$("reels-container")?.addEventListener("click", async event => {
+  const button = event.target.closest("[data-reel-action]");
+  if (!button) return;
+  const card = button.closest(".reel-card");
+  const video = card?.querySelector("video");
+  const action = button.dataset.reelAction;
+  const id = card?.dataset.reelId;
+  const reel = reels.find(r => r.id === id);
+  if (action === "play" && video) {
+    if (video.paused) video.play().catch(()=>{}); else video.pause();
+  }
+  if (action === "sound" && video) {
+    video.muted = !video.muted;
+    button.textContent = video.muted ? "🔇" : "🔊";
+    if (!video.paused) video.play().catch(()=>{});
+  }
+  if (action === "like" && id) {
+    const liked = JSON.parse(localStorage.getItem("solexflix_liked_reels") || "[]");
+    const next = liked.includes(id) ? liked.filter(x => x !== id) : [...liked, id];
+    localStorage.setItem("solexflix_liked_reels", JSON.stringify(next));
+    button.classList.toggle("is-liked", next.includes(id));
+    const count = Math.max(0, Number(reel?.likes || 0)) + (next.includes(id) ? 1 : 0);
+    button.querySelector("small").textContent = count;
+  }
+  if (action === "comment") {
+    const comment = prompt("Write a comment:");
+    if (comment?.trim()) alert("Comment noted on this device. Shared comments need a moderated comments service.");
+  }
+  if (action === "share" && reel) {
+    const shareData = { title:"SolexFLIX Reel", text:reel.caption || "Watch this funny reel", url:location.href };
+    if (navigator.share) { try { await navigator.share(shareData); } catch {} }
+    else if (navigator.clipboard) { await navigator.clipboard.writeText(shareData.url); alert("Link copied!"); }
+  }
+});
+
+$("reel-form")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const message = $("reel-message");
+  if (!isAdmin) { showMessage(message, "Admin login required."); return; }
+  const videoUrl = safeVideoUrl($("reel-video-url")?.value.trim());
+  const caption = $("reel-caption")?.value.trim();
+  const creator = $("reel-creator")?.value.trim() || "SolexFLIX";
+  if (!videoUrl || !caption) { showMessage(message, "Valid video URL and caption required."); return; }
+  try {
+    const submit = $("reel-form").querySelector('button[type="submit"]');
+    submit.disabled = true; submit.textContent = "Publishing…";
+    await addDoc(videosRef, { videoUrl, caption, creator, likes:0, createdAt:serverTimestamp(), status:"published" });
+    $("reel-form").reset();
+    showMessage(message, "Reel published successfully!", true);
+    await loadReels();
+  } catch (error) {
+    console.error("Reel publish error:", error);
+    showMessage(message, "Publish failed: " + error.message);
+  } finally {
+    const submit = $("reel-form")?.querySelector('button[type="submit"]');
+    if (submit) { submit.disabled = false; submit.textContent = "Publish Reel"; }
+  }
+});
 
 /* =========================================
    26. START WEBSITE
