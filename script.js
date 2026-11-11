@@ -1636,7 +1636,7 @@ function setActiveAppView(viewId) {
   if (viewId === "reels-feed") {
     loadReels();
   }
-  if (viewId === "search-view") renderSocialSearch();
+  if (viewId === "search-view") { renderSocialSearch(); searchAccounts(socialSearchInput?.value || ""); }
   if (viewId === "profile-view") {
     if(!viewedProfile)renderProfilePage();
     const count = document.querySelectorAll("#reels-container .reel-card").length;
