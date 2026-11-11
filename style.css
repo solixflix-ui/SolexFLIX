@@ -1869,3 +1869,18 @@ body[data-active-view="home-view"] #home-view{display:block}
 body[data-active-view="search-view"] #search-view{display:block}
 body[data-active-view="messages-view"] #messages-view{display:block}
 body[data-active-view="profile-view"] #profile-view{display:block}
+
+
+/* Story and comment viewers */
+.media-viewer{position:fixed;z-index:3200;inset:0;background:#050609;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.media-viewer img,.media-viewer video{max-width:100%;max-height:82dvh;object-fit:contain;border-radius:10px}
+.media-viewer-user{position:absolute;top:18px;left:18px;font-size:13px;font-weight:700}
+.media-viewer-close{position:absolute;right:14px;top:10px;z-index:2;background:#2228;border:0;border-radius:50%;width:34px;height:34px;color:#fff;font-size:24px}
+.comments-card{width:min(100%,520px);height:min(78dvh,680px);display:flex;flex-direction:column;background:#151820;border:1px solid #333844;border-radius:16px;padding:18px 14px;box-sizing:border-box;position:relative}
+.comments-card h2{font-size:17px;text-align:center;margin:2px 0 14px}
+.reel-comments-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:8px 3px}
+.comment-row{display:flex;flex-direction:column;gap:4px;font-size:12px}
+.comment-row b{color:#f0f0f0}.comment-row span{color:#c4c8d0;overflow-wrap:anywhere;line-height:1.45}
+.comments-card .chat-compose{margin:0 -2px}
+.media-pick-label{grid-column:1/-1;display:block;padding:9px 11px;border:1px dashed #555e6c;border-radius:8px;color:#ddd;font-size:11px}
+#user-reel-file{font-size:10px;color:#aaa}
