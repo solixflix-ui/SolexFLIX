@@ -1557,7 +1557,7 @@ $("reel-form")?.addEventListener("submit", async event => {
    APP BOTTOM NAVIGATION
 ========================================= */
 function setActiveAppView(viewId) {
-  const allowed = ["home-view", "reels-feed", "messages-view", "profile-view"];
+  const allowed = ["home-view", "search-view", "reels-feed", "messages-view", "profile-view"];
   if (!allowed.includes(viewId)) return;
   document.body.dataset.activeView = viewId;
   document.querySelectorAll(".bottom-nav-btn").forEach((button) => {
@@ -1568,6 +1568,7 @@ function setActiveAppView(viewId) {
   if (viewId === "reels-feed") {
     loadReels();
   }
+  if (viewId === "search-view") renderSocialSearch();
   if (viewId === "profile-view") {
     const count = document.querySelectorAll("#reels-container .reel-card").length;
     const countNode = $("profile-reel-count");
@@ -1587,3 +1588,87 @@ setActiveAppView("home-view");
 
 loadMovies();
 loadReels();
+
+
+/* =========================================
+   SOLEXFLIX SOCIAL APP INTERACTIONS
+========================================= */
+const socialSearchInput = $("social-search-input");
+let socialSearchKind = "all";
+function renderSocialSearch() {
+  const q = (socialSearchInput?.value || "").trim().toLowerCase();
+  const host = $("social-search-results");
+  if (!host) return;
+  const reelItems = reels.filter(r => !q || [r.caption,r.creator,r.username].some(v => String(v||"").toLowerCase().includes(q)));
+  const movieItems = movies.filter(m => !q || [m.title,m.category,m.description].some(v => String(v||"").toLowerCase().includes(q)));
+  const showReels = socialSearchKind === "all" || socialSearchKind === "reels";
+  const showMovies = socialSearchKind === "all" || socialSearchKind === "tags";
+  const showAccounts = socialSearchKind === "all" || socialSearchKind === "accounts";
+  const chunks = [];
+  if (showAccounts) chunks.push('<div class="result-section"><h3>Creators</h3><div class="creator-result"><span class="mini-avatar">S</span><div><b>SolexFLIX</b><small>@solexflix · Official</small></div><span class="verified-mark">✓</span></div></div>');
+  if (showReels && reelItems.length) chunks.push('<div class="result-section"><h3>Reels</h3><div class="search-reel-list">'+reelItems.slice(0,12).map(r=>'<button class="search-reel-item" type="button" data-open-reels="1"><span>▶</span><b>'+escapeHTML(r.caption||"Reel")+'</b><small>@'+escapeHTML(r.creator||r.username||"creator")+'</small></button>').join("")+'</div></div>');
+  if (showMovies && movieItems.length) chunks.push('<div class="result-section"><h3>Movies & topics</h3><div class="search-reel-list">'+movieItems.slice(0,12).map(m=>'<div class="search-reel-item"><span>▣</span><b>'+escapeHTML(m.title||"Movie")+'</b><small>'+escapeHTML(m.category||"")+'</small></div>').join("")+'</div></div>');
+  host.innerHTML = chunks.join("") || '<div class="empty-state">No results found. Try another name or keyword.</div>';
+}
+socialSearchInput?.addEventListener("input", renderSocialSearch);
+document.querySelectorAll(".search-tab").forEach(btn=>btn.addEventListener("click",()=>{
+  socialSearchKind=btn.dataset.searchKind||"all";
+  document.querySelectorAll(".search-tab").forEach(b=>b.classList.toggle("active",b===btn));
+  renderSocialSearch();
+}));
+$("social-search-results")?.addEventListener("click",e=>{
+  if(e.target.closest("[data-open-reels]")) setActiveAppView("reels-feed");
+});
+$("search-toggle")?.addEventListener("click",()=>setActiveAppView("search-view"));
+$("reels-create-btn")?.addEventListener("click",()=>setActiveAppView("profile-view"));
+$("bottom-create-btn")?.addEventListener("click",()=>{
+  if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}
+  else {alert("Reel publishing is available from the verified Admin dashboard in this preview.");$("admin-open")?.click();}
+});
+$("admin-shortcut-btn")?.addEventListener("click",()=> $("admin-open")?.click());
+$("profile-settings-btn")?.addEventListener("click",()=>alert("Account settings will be connected with account authentication in the next backend stage."));
+$("edit-profile-btn")?.addEventListener("click",()=>{
+  const name=prompt("Display name",localStorage.getItem("solexflix_profile_name")||"SolexFLIX Creator");
+  if(name===null)return;
+  const bio=prompt("Profile bio",localStorage.getItem("solexflix_profile_bio")||"Movies, moments and people.");
+  if(bio===null)return;
+  localStorage.setItem("solexflix_profile_name",name.slice(0,50));
+  localStorage.setItem("solexflix_profile_bio",bio.slice(0,160));
+  updateLocalProfile();
+});
+function updateLocalProfile(){
+  const name=localStorage.getItem("solexflix_profile_name")||"SolexFLIX Creator";
+  const bio=localStorage.getItem("solexflix_profile_bio")||"Movies, moments and people. Welcome to the SolexFLIX community.";
+  if($("profile-display-name"))$("profile-display-name").textContent=name;
+  if($("profile-bio"))$("profile-bio").textContent=bio;
+}
+updateLocalProfile();
+$("share-profile-btn")?.addEventListener("click",async()=>{
+  const data={title:"SolexFLIX",text:"Find me on SolexFLIX",url:location.origin+location.pathname};
+  try{if(navigator.share)await navigator.share(data);else if(navigator.clipboard){await navigator.clipboard.writeText(data.url);alert("Profile link copied.");}}catch{}
+});
+$("story-add-btn")?.addEventListener("click",()=>alert("Story publishing needs the next media-upload and moderation connection. Stories area is ready in this preview."));
+$("new-message-btn")?.addEventListener("click",$("start-chat-btn")?.click.bind($("start-chat-btn"))||(()=>alert("Choose an account to start a conversation.")));
+$("start-chat-btn")?.addEventListener("click",()=>{
+  const who=prompt("Enter the exact SolexFLIX username to start a chat:");
+  if(!who?.trim())return;
+  const list=$("conversation-list");
+  const safe=escapeHTML(who.trim().replace(/^@/,""));
+  list.innerHTML='<button class="conversation-item active" type="button"><span class="mini-avatar">'+safe.charAt(0).toUpperCase()+'</span><span><b>@'+safe+'</b><small>New conversation</small></span></button>';
+  $("chat-panel").innerHTML='<div class="chat-header"><span class="mini-avatar">'+safe.charAt(0).toUpperCase()+'</span><b>@'+safe+'</b></div><div class="chat-messages" id="chat-messages"><div class="empty-state">Conversation started on this device preview. Connect messaging backend to deliver messages to other users.</div></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
+  $("chat-compose")?.addEventListener("submit",e=>{
+    e.preventDefault();const input=$("chat-message-input");const value=input?.value.trim();if(!value)return;
+    const line=document.createElement("div");line.className="chat-bubble own";line.textContent=value;$("chat-messages")?.appendChild(line);input.value="";
+  });
+});
+$("message-search-input")?.addEventListener("input",e=>{
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll(".conversation-item").forEach(item=>item.hidden=!item.textContent.toLowerCase().includes(q));
+});
+document.querySelectorAll(".profile-content-tab").forEach(btn=>btn.addEventListener("click",()=>{
+  document.querySelectorAll(".profile-content-tab").forEach(b=>b.classList.toggle("active",b===btn));
+  const grid=$("profile-content-grid");
+  if(grid)grid.innerHTML=btn.dataset.profileTab==="reels" && reels.length
+    ? reels.map(r=>'<div class="profile-reel-tile"><span>▶</span><small>'+escapeHTML(r.caption||"Reel")+'</small></div>').join("")
+    : '<div class="empty-state">Nothing here yet. Your '+escapeHTML(btn.dataset.profileTab)+' will appear here.</div>';
+}));
