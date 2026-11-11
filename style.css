@@ -1581,3 +1581,64 @@ input:focus, textarea:focus, select:focus { border-color: #c05bff; }
   .details-info h1 { font-size: 25px; }
   .admin-box { padding: 20px; }
 }
+
+
+/* =========================================
+   SOLEXFLIX FULL-SCREEN VERTICAL REELS FEED
+========================================= */
+body { overflow-x:hidden; }
+#website-section > .hero,
+#website-section > .search-area,
+#website-section > .movie-section { display:none !important; }
+#website-section { min-height:calc(100dvh - 66px); }
+.reels-page { width:100%; padding:0 12px 18px; box-sizing:border-box; }
+.reels-heading {
+  width:min(100%,520px); margin:0 auto; min-height:54px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.reels-kicker { color:#ff6b9d; font-size:9px; letter-spacing:2px; font-weight:800; }
+.reels-heading h1 { margin:1px 0 0; font-size:19px; line-height:1.2; }
+.reels-brand { font-weight:900; font-size:18px; letter-spacing:-.7px; }
+.reels-brand span { color:#f45b98; }
+.reels-container {
+  width:min(100%,480px); height:calc(100dvh - 132px); min-height:420px;
+  margin:0 auto; overflow-y:auto; overscroll-behavior-y:contain;
+  scroll-snap-type:y mandatory; scrollbar-width:none; border-radius:18px;
+  background:#08080d;
+}
+.reels-container::-webkit-scrollbar { display:none; }
+.reel-card {
+  width:100%; height:100%; min-height:420px; position:relative;
+  overflow:hidden; isolation:isolate; scroll-snap-align:start; scroll-snap-stop:always;
+  background:#111; border:1px solid rgba(255,255,255,.08); border-radius:18px;
+}
+.reel-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#08080d; }
+.reel-shade { position:absolute; inset:0; pointer-events:none; background:linear-gradient(0deg,rgba(0,0,0,.78),transparent 36%,rgba(0,0,0,.15)); }
+.reel-details { position:absolute; left:16px; right:78px; bottom:22px; z-index:2; text-shadow:0 1px 5px #000; }
+.reel-creator { font-weight:850; font-size:14px; margin-bottom:7px; }
+.reel-details p { font-size:14px; line-height:1.45; margin:0 0 8px; }
+.reel-audio { font-size:11px; color:#e5e5e5; }
+.reel-actions { position:absolute; right:12px; bottom:22px; z-index:3; display:flex; flex-direction:column; gap:18px; align-items:center; }
+.reel-actions button { color:#fff; border:0; background:transparent; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:24px; cursor:pointer; text-shadow:0 1px 5px #000; }
+.reel-actions button small { font-size:10px; font-weight:700; }
+.reel-actions button.is-liked { color:#ff477e; }
+.reel-sound { position:absolute; top:14px; right:14px; z-index:3; width:38px; height:38px; border:1px solid #ffffff55; border-radius:50%; background:#0008; color:white; }
+.reel-play-toggle { position:absolute; z-index:2; top:50%; left:50%; transform:translate(-50%,-50%); width:54px; height:54px; border:0; border-radius:50%; color:white; background:#0007; font-size:22px; opacity:0; }
+.reel-card:has(.reel-video:paused) .reel-play-toggle { opacity:1; }
+.reels-empty { min-height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:30px; color:#fff; box-sizing:border-box; }
+.reels-empty strong { font-size:20px; }
+.reels-empty p { color:#aaa; font-size:13px; line-height:1.5; }
+.reel-admin-form { display:grid; gap:12px; margin-bottom:28px; }
+.reel-admin-form .admin-help { color:#aaa; font-size:12px; line-height:1.5; }
+@media (max-width:600px) {
+  .navbar { min-height:48px; padding:8px 13px; }
+  .navbar .nav-links { width:auto; margin-left:auto; }
+  .navbar .nav-links a:not(:first-child) { display:none; }
+  .navbar .nav-links button { padding:7px 11px; }
+  .reels-page { padding:0 0 10px; }
+  .reels-heading { padding:0 15px; min-height:48px; }
+  .reels-container { width:100%; height:calc(100dvh - 112px); min-height:400px; border-radius:0; }
+  .reel-card { border-radius:0; border:0; }
+  .reel-details { left:14px; bottom:20px; }
+  .reel-actions { right:10px; bottom:20px; }
+}
