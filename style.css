@@ -1624,7 +1624,7 @@ body { overflow-x:hidden; }
 .reel-actions button.is-liked { color:#ff477e; }
 .reel-sound { position:absolute; top:14px; right:14px; z-index:3; width:38px; height:38px; border:1px solid #ffffff55; border-radius:50%; background:#0008; color:white; }
 .reel-play-toggle { position:absolute; z-index:2; top:50%; left:50%; transform:translate(-50%,-50%); width:54px; height:54px; border:0; border-radius:50%; color:white; background:#0007; font-size:22px; opacity:0; }
-.reel-card:has(.reel-video:paused) .reel-play-toggle { opacity:1; }
+.reel-card.is-paused .reel-play-toggle { opacity:1; }
 .reels-empty { min-height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:30px; color:#fff; box-sizing:border-box; }
 .reels-empty strong { font-size:20px; }
 .reels-empty p { color:#aaa; font-size:13px; line-height:1.5; }
