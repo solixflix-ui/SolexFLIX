@@ -188,7 +188,7 @@
     <section id="messages-view" class="app-view social-view">
       <div class="social-topline"><div><h1>Messages</h1><small class="muted-note">Your conversations</small></div><button class="small-action" id="new-message-btn" type="button">＋ New</button></div>
       <div class="social-search compact-search"><span>⌕</span><input id="message-search-input" type="search" placeholder="Search messages"></div>
-      <div class="inbox-layout">
+      <div class="inbox-layout" id="inbox-layout">
         <aside class="inbox-list"><div class="inbox-heading"><button type="button" class="inbox-filter active" data-inbox-filter="primary">Primary</button><button type="button" class="inbox-filter" data-inbox-filter="requests">Requests</button></div><div id="conversation-list"><div class="empty-state">Sign in to see your messages.</div></div></aside>
         <section class="chat-panel" id="chat-panel"><div class="chat-empty"><div class="chat-empty-icon">✉</div><h2>Your messages</h2><p>Choose a conversation or start a new chat.</p><button id="start-chat-btn" class="primary-btn compact-btn" type="button">Send message</button></div></section>
       </div>
@@ -203,7 +203,7 @@
       <div class="profile-name"><strong id="profile-display-name">SolexFLIX Creator</strong><span id="profile-handle">@solexflix</span><p id="profile-bio">Movies, moments and people. Welcome to the SolexFLIX community.</p></div>
       <div class="profile-actions"><button id="profile-follow-btn" type="button" hidden>Follow</button><button id="share-profile-btn" type="button">Share profile</button><button id="admin-shortcut-btn" type="button">Admin panel</button><button id="profile-signout-btn" type="button" hidden>Sign out</button></div>
       <div class="profile-content-tabs"><button class="profile-content-tab active" data-profile-tab="posts">▦ Posts</button><button class="profile-content-tab" data-profile-tab="reels">▶ Reels</button><button class="profile-content-tab" data-profile-tab="tagged">♙ Tagged</button></div>
-      <div class="profile-publish-tools">
+      <div class="profile-publish-tools" id="profile-publish-tools">
         <h3>Create on SolexFLIX</h3>
         <form id="user-reel-form" class="user-publish-form">
           <label class="media-pick-label" for="user-reel-file">Choose video from phone</label>
