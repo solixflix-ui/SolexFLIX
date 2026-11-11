@@ -82,6 +82,7 @@ let socialAuthMode = "login";
 let activeChatUnsubscribe = null;
 let activeConversationUser = null;
 let socialProfile = null;
+let viewedProfile = null;
 
 
 /* =========================================
@@ -1755,7 +1756,10 @@ async function loadOwnReels(){
   }catch(err){console.warn("Own Reels:",err);}
 }
 function renderProfilePage(){
-  const p=socialProfile;
+  const p=viewedProfile||socialProfile;
+  const own=!!currentUser&&p?.uid===currentUser.uid;
+  if($("edit-profile-btn"))$("edit-profile-btn").hidden=!own;
+  if($("profile-message-btn"))$("profile-message-btn").hidden=own||!p?.uid;
   if($("profile-avatar"))$("profile-avatar").textContent=(p?.displayName||p?.username||"S").charAt(0).toUpperCase();
   if($("profile-display-name"))$("profile-display-name").textContent=p?.displayName||"SolexFLIX Creator";
   if($("profile-handle"))$("profile-handle").textContent="@"+(p?.username||"solexflix");
@@ -1775,6 +1779,20 @@ function renderProfilePage(){
     if($("profile-following-count"))$("profile-following-count").textContent="0";
   }
 }
+async function openPublicProfile(uid){
+  try{
+    const snap=await getDoc(doc(db,"users",uid));
+    if(!snap.exists())return;
+    viewedProfile={uid,...snap.data()};
+    setActiveAppView("profile-view");
+    renderProfilePage();
+    const [posts]=await Promise.all([getDocs(query(videosRef,where("creatorUid","==",uid),limit(60)))]);
+    if($("profile-post-count"))$("profile-post-count").textContent=posts.size;
+    const grid=$("profile-content-grid");
+    if(grid)grid.innerHTML=posts.size?posts.docs.map(d=>'<button class="profile-reel-tile" type="button" data-open-reels="1"><span>▶</span><small>'+escapeHTML(d.data().caption||"Reel")+'</small></button>').join(""):'<div class="empty-state">No public Reels yet.</div>';
+  }catch(err){console.warn("Public profile:",err);}
+}
+$("profile-message-btn")?.addEventListener("click",()=>{if(viewedProfile?.username)openDirectMessage(viewedProfile.username);});
 $("profile-signout-btn")?.addEventListener("click",async()=>{if(activeChatUnsubscribe)activeChatUnsubscribe();await signOut(auth);setActiveAppView("home-view");});
 $("edit-profile-btn")?.addEventListener("click",async()=>{
   if(!currentUser||isAdmin){openSocialAuth("login");return;}
@@ -1842,7 +1860,7 @@ async function searchAccounts(term){
     const q=query(usersRef,orderBy("username"),limit(30));
     const snap=await getDocs(q);
     userSearchResults=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>(p.username||"").toLowerCase().includes(term.toLowerCase())||(p.displayName||"").toLowerCase().includes(term.toLowerCase()));
-    host.innerHTML=userSearchResults.map(p=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((p.displayName||p.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(p.displayName||p.username)+'</b><small>@'+escapeHTML(p.username||"creator")+'</small></div><button class="follow-action" data-follow-uid="'+escapeHTML(p.uid)+'" data-follow-name="'+escapeHTML(p.username||"creator")+'">Follow</button></div>').join("")||'<div class="empty-state">No accounts found.</div>';
+    host.innerHTML=userSearchResults.map(p=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((p.displayName||p.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(p.displayName||p.username)+'</b><small>@'+escapeHTML(p.username||"creator")+'</small></div><button class="profile-view-action" data-profile-uid="'+escapeHTML(p.uid)+'">View</button><button class="follow-action" data-follow-uid="'+escapeHTML(p.uid)+'" data-follow-name="'+escapeHTML(p.username||"creator")+'">Follow</button></div>').join("")||'<div class="empty-state">No accounts found.</div>';
   }catch(err){host.innerHTML='<div class="empty-state">Account search needs Firestore user read permissions.</div>';console.warn(err);}
 }
 socialSearchInput?.addEventListener("input",()=>{
@@ -1851,7 +1869,7 @@ socialSearchInput?.addEventListener("input",()=>{
   else renderSocialSearch();
 });
 $("social-search-results")?.addEventListener("click",async e=>{
-  const btn=e.target.closest("[data-follow-uid]");if(!btn)return;
+  const view=e.target.closest("[data-profile-uid]");if(view){openPublicProfile(view.dataset.profileUid);return;}\n  const btn=e.target.closest("[data-follow-uid]");if(!btn)return;
   if(!currentUser||isAdmin){openSocialAuth("login");return;}
   const target=btn.dataset.followUid;if(target===currentUser.uid)return;
   const followId=currentUser.uid+"_"+target;
