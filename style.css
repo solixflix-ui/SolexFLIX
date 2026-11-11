@@ -1921,3 +1921,13 @@ body[data-active-view="profile-view"] #profile-view{display:block}
 
 
 body[data-app-overlay] .bottom-nav,body[data-app-overlay] .app-topbar{display:none!important}
+
+
+/* Final viewport fit: compact header + six-tab dock + reels canvas */
+.reels-container{height:calc(100dvh - 151px)!important}
+@media(max-width:600px){
+ .reels-container{height:calc(100dvh - 144px)!important}
+ .bottom-nav-btn{min-width:0}
+ .bottom-nav-btn small{white-space:nowrap}
+ .topbar-actions{gap:6px}
+}
