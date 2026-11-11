@@ -204,7 +204,9 @@
       <div class="profile-publish-tools">
         <h3>Create on SolexFLIX</h3>
         <form id="user-reel-form" class="user-publish-form">
-          <input id="user-reel-url" type="url" placeholder="Your direct MP4 / WebM URL" required>
+          <label class="media-pick-label" for="user-reel-file">Choose video from phone</label>
+          <input id="user-reel-file" type="file" accept="video/mp4,video/webm,video/quicktime">
+          <input id="user-reel-url" type="url" placeholder="Or paste a direct MP4 / WebM URL">
           <input id="user-reel-caption" type="text" maxlength="180" placeholder="Write a caption" required>
           <button type="submit">Publish Reel</button>
           <small>Only upload videos you own or have permission to share.</small>
@@ -243,6 +245,21 @@
       <small class="auth-terms">Use a real email address. Keep your password private.</small>
     </div>
   </section>
+
+  <div id="story-viewer" class="media-viewer" hidden role="dialog" aria-modal="true">
+    <button type="button" class="media-viewer-close" data-close-viewer="story-viewer">×</button>
+    <div class="media-viewer-user" id="story-viewer-user"></div>
+    <img id="story-viewer-image" alt="Story" hidden>
+    <video id="story-viewer-video" controls playsinline hidden></video>
+  </div>
+  <div id="comments-modal" class="social-auth-modal" hidden role="dialog" aria-modal="true" aria-labelledby="comments-title">
+    <div class="comments-card">
+      <button type="button" class="auth-close" data-close-viewer="comments-modal" aria-label="Close">×</button>
+      <h2 id="comments-title">Comments</h2>
+      <div id="reel-comments-list" class="reel-comments-list"></div>
+      <form id="reel-comment-form" class="chat-compose"><input id="reel-comment-input" maxlength="500" placeholder="Add a comment..." required><button type="submit">➤</button></form>
+    </div>
+  </div>
 
   <!-- MOVIE DETAILS -->
   <section id="details-section" hidden>
