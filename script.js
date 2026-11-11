@@ -1166,7 +1166,6 @@ if (movieForm) {
       }
 
       await loadMovies();
-loadReels();
 
     } catch (error) {
       console.error("Save movie error:", error);
@@ -1519,3 +1518,4 @@ $("reel-form")?.addEventListener("submit", async event => {
 ========================================= */
 
 loadMovies();
+loadReels();
