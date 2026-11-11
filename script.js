@@ -1819,7 +1819,10 @@ function renderProfilePage(){
   if($("profile-message-btn"))$("profile-message-btn").hidden=own||!p?.uid;
   if($("profile-follow-btn"))$("profile-follow-btn").hidden=own||!p?.uid||!currentUser||isAdmin;
   if(p?.uid&&!own&&currentUser)refreshProfileFollowState(p.uid);
-  if($("profile-avatar"))$("profile-avatar").textContent=(p?.displayName||p?.username||"S").charAt(0).toUpperCase();
+  if($("profile-avatar")){
+    $("profile-avatar").innerHTML=p?.photoURL?'<img src="'+escapeHTML(p.photoURL)+'" alt="Profile photo">':escapeHTML((p?.displayName||p?.username||"S").charAt(0).toUpperCase());
+  }
+  if($("profile-photo-btn"))$("profile-photo-btn").hidden=!own;
   if($("profile-display-name"))$("profile-display-name").textContent=p?.displayName||"SolexFLIX Creator";
   if($("profile-handle"))$("profile-handle").textContent="@"+(p?.username||"solexflix");
   if($("profile-bio"))$("profile-bio").textContent=p?.bio||"Movies, moments and people.";
@@ -1890,6 +1893,18 @@ async function openPublicProfile(uid){
     if(grid)grid.innerHTML=posts.size?posts.docs.map(d=>'<button class="profile-reel-tile" type="button" data-open-reels="1"><span>▶</span><small>'+escapeHTML(d.data().caption||"Reel")+'</small></button>').join(""):'<div class="empty-state">No public Reels yet.</div>';
   }catch(err){console.warn("Public profile:",err);}
 }
+
+$("profile-photo-btn")?.addEventListener("click",()=>$("profile-photo-input")?.click());
+$("profile-photo-input")?.addEventListener("change",async e=>{
+  const file=e.target.files?.[0];if(!file||!currentUser)return;
+  try{
+    if(!file.type.startsWith("image/"))throw new Error("Choose an image.");
+    const photoURL=await uploadSocialMedia(file,"profiles",5*1024*1024);
+    await setDoc(doc(db,"users",currentUser.uid),{photoURL},{merge:true});
+    await loadSocialProfile(currentUser);
+  }catch(err){alert("Profile photo upload failed: "+err.message);}
+  finally{e.target.value="";}
+});
 $("profile-message-btn")?.addEventListener("click",()=>{if(viewedProfile?.username)openDirectMessage(viewedProfile.username);});
 $("profile-signout-btn")?.addEventListener("click",async()=>{if(activeChatUnsubscribe)activeChatUnsubscribe();await signOut(auth);setActiveAppView("home-view");});
 $("edit-profile-btn")?.addEventListener("click",async()=>{
