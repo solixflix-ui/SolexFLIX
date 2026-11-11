@@ -1377,6 +1377,8 @@ if ($("logout-btn")) {
 const videosRef = collection(db, "videos");
 let reels = [];
 let reelsObserver = null;
+// Keep the existing Adsterra homepage slot and mount it inside the Reels feed.
+const homepageAdSlot = $("website-section")?.querySelector(".ad-slot-home") || document.querySelector(".ad-slot-home");
 
 function safeVideoUrl(value = "") {
   try {
@@ -1466,9 +1468,20 @@ async function loadReels() {
     reels = snap.docs.map(d => ({ id:d.id, ...d.data() }))
       .filter(r => safeVideoUrl(r.videoUrl || r.video || r.url))
       .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    // Detach the existing ad before replacing feed markup, then place it after reel 3.
+    if (homepageAdSlot) homepageAdSlot.remove();
     container.innerHTML = reels.length
       ? reels.map(reelMarkup).join("")
       : '<div class="reels-empty"><strong>No reels yet</strong><p>Admin dashboard se pehla funny video publish karo.</p></div>';
+    if (homepageAdSlot) {
+      const adCard = document.createElement("div");
+      adCard.className = "reel-ad-card";
+      adCard.setAttribute("aria-label", "Advertisement");
+      adCard.appendChild(homepageAdSlot);
+      const thirdReel = container.querySelectorAll(".reel-card")[2];
+      if (thirdReel) thirdReel.after(adCard);
+      else container.appendChild(adCard);
+    }
     setupReelPlayback();
   } catch (error) {
     console.error("Reels load error:", error);
