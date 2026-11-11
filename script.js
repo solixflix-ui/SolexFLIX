@@ -30,6 +30,7 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  increment,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -1419,7 +1420,7 @@ function reelMarkup(reel) {
   const caption = escapeHTML(reel.caption || reel.description || "A little laugh for your day");
   const creator = escapeHTML(reel.creator || reel.username || "SolexFLIX");
   const liked = getLikedReels().includes(reel.id);
-  const likes = Math.max(0, Number(reel.likes || 0)) + (liked ? 1 : 0);
+  const likes = Math.max(0, Number(reel.likes || 0));
   return `
     <article class="reel-card" data-reel-id="${id}">
       <video class="reel-video" src="${escapeHTML(src)}" playsinline loop muted preload="metadata"></video>
@@ -1522,16 +1523,35 @@ $("reels-container")?.addEventListener("click", async event => {
     if (!video.paused) video.play().catch(()=>{});
   }
   if (action === "like" && id) {
-    const liked = getLikedReels();
-    const next = liked.includes(id) ? liked.filter(x => x !== id) : [...liked, id];
-    localStorage.setItem("solexflix_liked_reels", JSON.stringify(next));
-    button.classList.toggle("is-liked", next.includes(id));
-    const count = Math.max(0, Number(reel?.likes || 0)) + (next.includes(id) ? 1 : 0);
-    button.querySelector("small").textContent = count;
+    if(!currentUser||isAdmin){openSocialAuth("login");return;}
+    const likeRef=doc(db,"reelLikes",id+"_"+currentUser.uid);
+    try{
+      const existing=await getDoc(likeRef);
+      if(existing.exists()){
+        await deleteDoc(likeRef);
+        await updateDoc(doc(db,"videos",id),{likes:increment(-1)});
+        button.classList.remove("is-liked");
+      }else{
+        await setDoc(likeRef,{uid:currentUser.uid,reelId:id,createdAt:serverTimestamp()});
+        await updateDoc(doc(db,"videos",id),{likes:increment(1)});
+        button.classList.add("is-liked");
+      }
+      const updated=await getDoc(doc(db,"videos",id));
+      const n=Math.max(0,Number(updated.data()?.likes||0));
+      button.querySelector("small").textContent=n;
+      reel.likes=n;
+    }catch(err){alert("Like could not be saved: "+err.message);}
   }
   if (action === "comment") {
-    const comment = prompt("Write a comment:");
-    if (comment?.trim()) alert("Comment noted on this device. Shared comments need a moderated comments service.");
+    if(!currentUser||isAdmin){openSocialAuth("login");return;}
+    const comment=prompt("Write a comment (max 500 characters):");
+    if(comment?.trim()){
+      try{
+        await addDoc(commentsRef,{reelId:id,uid:currentUser.uid,username:socialProfile?.username||"creator",text:comment.trim().slice(0,500),createdAt:serverTimestamp()});
+        const total=await getDocs(query(commentsRef,where("reelId","==",id)));
+        button.querySelector("small").textContent=total.size+" comments";
+      }catch(err){alert("Comment could not be saved: "+err.message);}
+    }
   }
   if (action === "share" && reel) {
     const shareData = { title:"SolexFLIX Reel", text:reel.caption || "Watch this funny reel", url:location.href };
@@ -1721,7 +1741,18 @@ async function loadSocialProfile(user){
       await setDoc(doc(db,"users",user.uid),fallback,{merge:true});
     }
   }catch(error){console.warn("Profile load failed",error);socialProfile={uid:user.uid,username:user.displayName||"creator",displayName:user.displayName||"Creator",bio:""};}
-  updateAccountControls();renderProfilePage();renderSocialSearch();
+  updateAccountControls();renderProfilePage();renderSocialSearch();loadInbox();loadOwnReels();
+}
+
+async function loadOwnReels(){
+  if(!currentUser||isAdmin)return;
+  try{
+    const snap=await getDocs(query(videosRef,where("creatorUid","==",currentUser.uid),limit(60)));
+    const own=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const grid=$("profile-content-grid");
+    if(grid)grid.innerHTML=own.length?own.map(r=>'<button class="profile-reel-tile" type="button" data-open-reels="1"><span>▶</span><small>'+escapeHTML(r.caption||"Reel")+'</small></button>').join(""):'<div class="empty-state">Your published Reels will appear here.</div>';
+    if($("profile-post-count"))$("profile-post-count").textContent=String(own.length);
+  }catch(err){console.warn("Own Reels:",err);}
 }
 function renderProfilePage(){
   const p=socialProfile;
@@ -1830,6 +1861,28 @@ $("social-search-results")?.addEventListener("click",async e=>{
     else{await setDoc(ref,{followerUid:currentUser.uid,followingUid:target,createdAt:serverTimestamp()});btn.textContent="Following";}
   }catch(err){alert("Follow update failed: "+err.message);}
 });
+
+async function loadInbox(){
+  if(!currentUser||isAdmin)return;
+  try{
+    const [incoming,outgoing]=await Promise.all([
+      getDocs(query(messagesRef,where("recipientUid","==",currentUser.uid),limit(60))),
+      getDocs(query(messagesRef,where("senderUid","==",currentUser.uid),limit(60)))
+    ]);
+    const latest=new Map();
+    [...incoming.docs,...outgoing.docs].forEach(d=>{
+      const m=d.data(),other=m.senderUid===currentUser.uid?m.recipientUid:m.senderUid;
+      const name=m.senderUid===currentUser.uid?m.recipientUsername:m.senderUsername;
+      const previous=latest.get(other);
+      if(!previous||(m.createdAt?.seconds||0)>(previous.createdAt?.seconds||0))latest.set(other,{uid:other,username:name||"creator",text:m.text||"",createdAt:m.createdAt});
+    });
+    const host=$("conversation-list");if(!host)return;
+    host.innerHTML=[...latest.values()].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)).map(c=>'<button class="conversation-item" type="button" data-chat-user="'+escapeHTML(c.username)+'"><span class="mini-avatar">'+escapeHTML(c.username.charAt(0).toUpperCase())+'</span><span><b>@'+escapeHTML(c.username)+'</b><small>'+escapeHTML(c.text)+'</small></span></button>').join("")||'<div class="empty-state">No messages yet. Search for a creator to start chatting.</div>';
+  }catch(err){console.warn("Inbox load:",err);}
+}
+$("conversation-list")?.addEventListener("click",e=>{
+  const item=e.target.closest("[data-chat-user]");if(item)openDirectMessage(item.dataset.chatUser);
+});
 async function openDirectMessage(username){
   if(!currentUser||isAdmin){openSocialAuth("login");return;}
   const clean=username.trim().replace(/^@/,"").toLowerCase();
@@ -1844,7 +1897,7 @@ async function openDirectMessage(username){
     const participants=[currentUser.uid,target.uid].sort();
     const threadId=participants.join("_");
     if(activeChatUnsubscribe)activeChatUnsubscribe();
-    activeChatUnsubscribe=onSnapshot(query(messagesRef,where("threadId","==",threadId),orderBy("createdAt","asc"),limit(100)),snap=>{
+    activeChatUnsubscribe=onSnapshot(query(messagesRef,where("threadId","==",threadId),limit(100)),snap=>{
       const box=$("chat-messages");if(!box)return;
       box.innerHTML=snap.docs.map(d=>{const m=d.data();return '<div class="chat-bubble '+(m.senderUid===currentUser.uid?"own":"")+'">'+escapeHTML(m.text||"")+'</div>';}).join("");
       box.scrollTop=box.scrollHeight;
@@ -1852,7 +1905,7 @@ async function openDirectMessage(username){
     $("chat-compose").addEventListener("submit",async ev=>{
       ev.preventDefault();const input=$("chat-message-input"),value=input.value.trim();if(!value)return;
       input.disabled=true;
-      try{await addDoc(messagesRef,{threadId,senderUid:currentUser.uid,recipientUid:target.uid,text:value,createdAt:serverTimestamp()});input.value="";}
+      try{await addDoc(messagesRef,{threadId,senderUid:currentUser.uid,recipientUid:target.uid,senderUsername:socialProfile?.username||"creator",recipientUsername:target.username||"creator",text:value,createdAt:serverTimestamp()});input.value="";}
       catch(err){alert("Message failed: "+err.message);}finally{input.disabled=false;input.focus();}
     });
   }catch(err){alert("Could not open chat: "+err.message);}
