@@ -1677,7 +1677,11 @@ document.querySelectorAll("[data-reel-feed]").forEach(btn=>btn.addEventListener(
   await loadReels();
 }));
 $("search-toggle")?.addEventListener("click",()=>setActiveAppView("search-view"));
-$("reels-create-btn")?.addEventListener("click",()=>currentUser&&!isAdmin?setActiveAppView("profile-view"):openSocialAuth("signup"));
+$("reels-create-btn")?.addEventListener("click",()=>{
+  if(!currentUser||isAdmin){openSocialAuth("signup");return;}
+  setActiveAppView("profile-view");
+  $("user-reel-form")?.scrollIntoView({behavior:"smooth",block:"center"});
+});
 $("bottom-create-btn")?.addEventListener("click",()=>{
   if(currentUser&&!isAdmin){setActiveAppView("profile-view");$("user-reel-form")?.scrollIntoView({behavior:"smooth",block:"center"});}
   else if(isAdmin){showAdminDashboard();$("reel-form")?.scrollIntoView({behavior:"smooth"});}
@@ -2057,3 +2061,13 @@ $("social-search-results")?.addEventListener("dblclick",e=>{
   const row=e.target.closest(".creator-result");const name=row?.querySelector("small")?.textContent?.replace("@","");
   if(name)openDirectMessage(name);
 });
+
+async function openProfileFromUrl(){
+  const username=new URLSearchParams(location.search).get("user");
+  if(!username)return;
+  try{
+    const snap=await getDocs(query(usersRef,where("username","==",username.toLowerCase()),limit(1)));
+    if(!snap.empty)await openPublicProfile(snap.docs[0].id);
+  }catch(err){console.warn("Shared profile link:",err);}
+}
+openProfileFromUrl();
