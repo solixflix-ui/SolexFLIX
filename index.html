@@ -56,6 +56,7 @@
     <a href="#" class="logo" id="brand-home">Solex<span>FLIX</span></a>
     <div class="topbar-actions">
       <button id="search-toggle" type="button" aria-label="Search" class="topbar-icon">⌕</button>
+      <button id="notifications-open" type="button" class="topbar-icon notification-trigger" aria-label="Notifications">♧<i id="notification-dot" hidden></i></button>
       <button id="account-open" type="button" class="account-open">Sign in</button>
       <button id="admin-open" type="button" class="admin-btn">Admin</button>
     </div>
@@ -251,6 +252,13 @@
     <div class="media-viewer-user" id="story-viewer-user"></div>
     <img id="story-viewer-image" alt="Story" hidden>
     <video id="story-viewer-video" controls playsinline hidden></video>
+  </div>
+  <div id="notifications-modal" class="social-auth-modal" hidden role="dialog" aria-modal="true" aria-labelledby="notifications-title">
+    <div class="comments-card">
+      <button type="button" class="auth-close" data-close-viewer="notifications-modal" aria-label="Close">×</button>
+      <h2 id="notifications-title">Activity</h2>
+      <div id="notifications-list" class="reel-comments-list"></div>
+    </div>
   </div>
   <div id="relations-modal" class="social-auth-modal" hidden role="dialog" aria-modal="true" aria-labelledby="relations-title">
     <div class="comments-card">
