@@ -1867,7 +1867,8 @@ socialSearchInput?.addEventListener("input",()=>{
   else renderSocialSearch();
 });
 $("social-search-results")?.addEventListener("click",async e=>{
-  const view=e.target.closest("[data-profile-uid]");if(view){openPublicProfile(view.dataset.profileUid);return;}\n  const btn=e.target.closest("[data-follow-uid]");if(!btn)return;
+  const view=e.target.closest("[data-profile-uid]");if(view){openPublicProfile(view.dataset.profileUid);return;}
+  const btn=e.target.closest("[data-follow-uid]");if(!btn)return;
   if(!currentUser||isAdmin){openSocialAuth("login");return;}
   const target=btn.dataset.followUid;if(target===currentUser.uid)return;
   const followId=currentUser.uid+"_"+target;
