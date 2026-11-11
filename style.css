@@ -1931,3 +1931,14 @@ body[data-app-overlay] .bottom-nav,body[data-app-overlay] .app-topbar{display:no
  .bottom-nav-btn small{white-space:nowrap}
  .topbar-actions{gap:6px}
 }
+
+
+/* Direct-message mobile screen and profile ownership states */
+@media(max-width:600px){
+ .inbox-layout.chat-open .inbox-list{display:none}
+ .inbox-layout.chat-open .chat-panel{display:flex;min-height:calc(100dvh - 190px)}
+ .inbox-layout:not(.chat-open) .chat-panel{display:none}
+ .chat-header{position:sticky;top:0;background:#111318;z-index:2}
+}
+.chat-back-btn{border:0;background:transparent;color:#fff;font-size:20px;padding:3px 7px}
+.profile-publish-tools[hidden]{display:none!important}
