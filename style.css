@@ -2003,3 +2003,11 @@ body[data-app-overlay] .bottom-nav,body[data-app-overlay] .app-topbar{display:no
 .profile-photo-tile img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px}.profile-photo-tile p{font-size:10px;color:#c4c9d2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @keyframes studio-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 button{transition:transform .15s ease,filter .15s ease,background-color .15s ease}button:active{transform:scale(.96);filter:brightness(1.15)}
+
+.button-spinner{display:inline-block;width:13px;height:13px;border:2px solid #ffffff55;border-top-color:#fff;border-radius:50%;animation:solex-spin .7s linear infinite;vertical-align:-2px;margin-right:7px}
+@keyframes solex-spin{to{transform:rotate(360deg)}}
+button.is-loading{opacity:.82;cursor:wait}
+.social-auth-card.auth-success{animation:auth-success-pop .45s ease both}
+@keyframes auth-success-pop{50%{transform:scale(1.035)}100%{transform:scale(1);opacity:1}}
+.social-upload-progress{position:fixed;z-index:7100;left:50%;bottom:calc(78px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(88vw,360px);padding:12px 14px;background:#171b24;border:1px solid #3a414f;border-radius:12px;box-shadow:0 10px 35px #0009;color:#fff;font-size:12px;display:grid;grid-template-columns:1fr auto;gap:8px}
+.social-upload-progress[hidden]{display:none!important}.upload-progress-track{grid-column:1/-1;height:5px;background:#353b47;border-radius:9px;overflow:hidden}.upload-progress-track i{display:block;height:100%;background:#e50914;border-radius:9px;transition:width .15s linear}
