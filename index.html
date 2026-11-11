@@ -196,10 +196,10 @@
       <div class="profile-topbar"><h1>Profile</h1><div><button id="edit-profile-btn" class="small-action" type="button">Edit profile</button><button id="profile-message-btn" class="small-action" type="button" hidden>Message</button><button id="profile-settings-btn" class="small-action" type="button" aria-label="Settings">⚙</button></div></div>
       <div class="profile-summary">
         <div class="profile-avatar" id="profile-avatar">S</div>
-        <div class="profile-numbers"><div><strong id="profile-post-count">0</strong><span>Posts</span></div><div><strong id="profile-follower-count">0</strong><span>Followers</span></div><div><strong id="profile-following-count">0</strong><span>Following</span></div></div>
+        <div class="profile-numbers"><div><strong id="profile-post-count">0</strong><span>Posts</span></div><div><strong id="profile-follower-count">0</strong><button type="button" data-profile-relation="followers">Followers</button></div><div><strong id="profile-following-count">0</strong><button type="button" data-profile-relation="following">Following</button></div></div>
       </div>
       <div class="profile-name"><strong id="profile-display-name">SolexFLIX Creator</strong><span id="profile-handle">@solexflix</span><p id="profile-bio">Movies, moments and people. Welcome to the SolexFLIX community.</p></div>
-      <div class="profile-actions"><button id="share-profile-btn" type="button">Share profile</button><button id="admin-shortcut-btn" type="button">Admin panel</button><button id="profile-signout-btn" type="button" hidden>Sign out</button></div>
+      <div class="profile-actions"><button id="profile-follow-btn" type="button" hidden>Follow</button><button id="share-profile-btn" type="button">Share profile</button><button id="admin-shortcut-btn" type="button">Admin panel</button><button id="profile-signout-btn" type="button" hidden>Sign out</button></div>
       <div class="profile-content-tabs"><button class="profile-content-tab active" data-profile-tab="posts">▦ Posts</button><button class="profile-content-tab" data-profile-tab="reels">▶ Reels</button><button class="profile-content-tab" data-profile-tab="tagged">♙ Tagged</button></div>
       <div class="profile-publish-tools">
         <h3>Create on SolexFLIX</h3>
@@ -251,6 +251,13 @@
     <div class="media-viewer-user" id="story-viewer-user"></div>
     <img id="story-viewer-image" alt="Story" hidden>
     <video id="story-viewer-video" controls playsinline hidden></video>
+  </div>
+  <div id="relations-modal" class="social-auth-modal" hidden role="dialog" aria-modal="true" aria-labelledby="relations-title">
+    <div class="comments-card">
+      <button type="button" class="auth-close" data-close-viewer="relations-modal" aria-label="Close">×</button>
+      <h2 id="relations-title">Followers</h2>
+      <div id="relations-list" class="reel-comments-list"></div>
+    </div>
   </div>
   <div id="comments-modal" class="social-auth-modal" hidden role="dialog" aria-modal="true" aria-labelledby="comments-title">
     <div class="comments-card">
