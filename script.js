@@ -1724,7 +1724,7 @@ $("social-auth-form")?.addEventListener("submit",async e=>{
       if(!existing.empty)throw new Error("This username is already taken.");
       const credential=await createUserWithEmailAndPassword(auth,email,password);
       await updateProfile(credential.user,{displayName:name||username});
-      const profile={uid:credential.user.uid,username,displayName:name||username,email, bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
+      const profile={uid:credential.user.uid,username,displayName:name||username,bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
       await setDoc(doc(db,"users",credential.user.uid),profile);
       socialProfile=profile;
     }else{
@@ -1743,7 +1743,7 @@ async function loadSocialProfile(user){
     const snap=await getDoc(doc(db,"users",user.uid));
     if(snap.exists())socialProfile={uid:user.uid,...snap.data()};
     else{
-      const fallback={uid:user.uid,username:(user.email||"creator").split("@")[0].toLowerCase().replace(/[^a-z0-9._]/g,"").slice(0,24),displayName:user.displayName||"Creator",email:user.email||"",bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
+      const fallback={uid:user.uid,username:(user.displayName||("creator_"+user.uid.slice(0,6))).toLowerCase().replace(/[^a-z0-9._]/g,"").slice(0,24),displayName:user.displayName||"Creator",bio:"New to SolexFLIX.",photoURL:"",createdAt:serverTimestamp()};
       socialProfile=fallback;
       await setDoc(doc(db,"users",user.uid),fallback,{merge:true});
     }
