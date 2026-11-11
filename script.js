@@ -1882,12 +1882,9 @@ $("social-search-results")?.addEventListener("click",async e=>{
 async function loadInbox(){
   if(!currentUser||isAdmin)return;
   try{
-    const [incoming,outgoing]=await Promise.all([
-      getDocs(query(messagesRef,where("recipientUid","==",currentUser.uid),limit(60))),
-      getDocs(query(messagesRef,where("senderUid","==",currentUser.uid),limit(60)))
-    ]);
+    const inboxSnap=await getDocs(query(messagesRef,where("participants","array-contains",currentUser.uid),limit(120)));
     const latest=new Map();
-    [...incoming.docs,...outgoing.docs].forEach(d=>{
+    inboxSnap.docs.forEach(d=>{
       const m=d.data(),other=m.senderUid===currentUser.uid?m.recipientUid:m.senderUid;
       const name=m.senderUid===currentUser.uid?m.recipientUsername:m.senderUsername;
       const previous=latest.get(other);
