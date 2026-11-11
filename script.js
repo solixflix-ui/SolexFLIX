@@ -2113,7 +2113,9 @@ async function openDirectMessage(username){
     if(target.uid===currentUser.uid){alert("This is your own account.");return;}
     activeConversationUser=target;
     setActiveAppView("messages-view");
-    $("chat-panel").innerHTML='<div class="chat-header"><span class="mini-avatar">'+escapeHTML((target.username||"S").charAt(0).toUpperCase())+'</span><b>@'+escapeHTML(target.username)+'</b></div><div class="chat-messages" id="chat-messages"></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" maxlength="2000" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
+    document.querySelectorAll(".conversation-item").forEach(item=>item.classList.toggle("active",item.dataset.chatUser===target.username));
+    $("chat-panel").innerHTML='<div class="chat-header"><button type="button" id="chat-back-btn" class="chat-back-btn">←</button><span class="mini-avatar">'+escapeHTML((target.username||"S").charAt(0).toUpperCase())+'</span><b>@'+escapeHTML(target.username)+'</b></div><div class="chat-messages" id="chat-messages"></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" maxlength="2000" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
+    $("chat-back-btn")?.addEventListener("click",()=>{document.querySelectorAll(".conversation-item").forEach(item=>item.classList.remove("active"));});
     const participants=[currentUser.uid,target.uid].sort();
     const threadId=participants.join("_");
     await setDoc(doc(db,"acceptedChats",currentUser.uid+"_"+threadId),{uid:currentUser.uid,threadId,acceptedAt:serverTimestamp()},{merge:true});
