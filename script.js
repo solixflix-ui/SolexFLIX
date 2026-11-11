@@ -1779,6 +1779,8 @@ function renderProfilePage(){
   const own=!!currentUser&&p?.uid===currentUser.uid;
   if($("edit-profile-btn"))$("edit-profile-btn").hidden=!own;
   if($("profile-message-btn"))$("profile-message-btn").hidden=own||!p?.uid;
+  if($("profile-follow-btn"))$("profile-follow-btn").hidden=own||!p?.uid||!currentUser||isAdmin;
+  if(p?.uid&&!own&&currentUser)refreshProfileFollowState(p.uid);
   if($("profile-avatar"))$("profile-avatar").textContent=(p?.displayName||p?.username||"S").charAt(0).toUpperCase();
   if($("profile-display-name"))$("profile-display-name").textContent=p?.displayName||"SolexFLIX Creator";
   if($("profile-handle"))$("profile-handle").textContent="@"+(p?.username||"solexflix");
@@ -1798,6 +1800,45 @@ function renderProfilePage(){
     if($("profile-following-count"))$("profile-following-count").textContent="0";
   }
 }
+
+async function refreshProfileFollowState(targetUid){
+  if(!currentUser||!targetUid||targetUid===currentUser.uid)return;
+  const btn=$("profile-follow-btn");if(!btn)return;
+  try{
+    const snap=await getDoc(doc(db,"follows",currentUser.uid+"_"+targetUid));
+    btn.textContent=snap.exists()?"Following":"Follow";
+    btn.classList.toggle("is-following",snap.exists());
+  }catch(err){console.warn(err);}
+}
+$("profile-follow-btn")?.addEventListener("click",async()=>{
+  if(!currentUser||!viewedProfile?.uid)return;
+  const targetUid=viewedProfile.uid,ref=doc(db,"follows",currentUser.uid+"_"+targetUid),btn=$("profile-follow-btn");
+  try{
+    const snap=await getDoc(ref);
+    if(snap.exists()){await deleteDoc(ref);btn.textContent="Follow";btn.classList.remove("is-following");}
+    else{await setDoc(ref,{followerUid:currentUser.uid,followingUid:targetUid,createdAt:serverTimestamp()});btn.textContent="Following";btn.classList.add("is-following");}
+    renderProfilePage();
+  }catch(err){alert("Follow update failed: "+err.message);}
+});
+document.querySelector(".profile-numbers")?.addEventListener("click",async e=>{
+  const button=e.target.closest("[data-profile-relation]");if(!button)return;
+  const p=viewedProfile||socialProfile;if(!p?.uid)return;
+  const kind=button.dataset.profileRelation;
+  $("relations-title").textContent=kind==="followers"?"Followers":"Following";
+  const host=$("relations-list");host.innerHTML='<div class="empty-state">Loading…</div>';
+  $("relations-modal").hidden=false;
+  try{
+    const snap=await getDocs(query(followsRef,where(kind==="followers"?"followingUid":"followerUid","==",p.uid),limit(200)));
+    const ids=snap.docs.map(d=>kind==="followers"?d.data().followerUid:d.data().followingUid).filter(uid=>uid!==p.uid);
+    const profiles=await Promise.all(ids.map(async uid=>{const u=await getDoc(doc(db,"users",uid));return u.exists()?{uid,...u.data()}:null;}));
+    const valid=profiles.filter(Boolean);
+    host.innerHTML=valid.map(u=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((u.displayName||u.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(u.displayName||u.username)+'</b><small>@'+escapeHTML(u.username||"creator")+'</small></div><button type="button" class="profile-view-action" data-profile-uid="'+escapeHTML(u.uid)+'">View</button></div>').join("")||'<div class="empty-state">No accounts here yet.</div>';
+  }catch(err){host.innerHTML='<div class="empty-state">Could not load this list.</div>';}
+});
+$("relations-list")?.addEventListener("click",e=>{
+  const btn=e.target.closest("[data-profile-uid]");if(!btn)return;
+  $("relations-modal").hidden=true;openPublicProfile(btn.dataset.profileUid);
+});
 async function openPublicProfile(uid){
   try{
     const snap=await getDoc(doc(db,"users",uid));
