@@ -2034,7 +2034,16 @@ async function searchAccounts(term){
     const q=query(usersRef,orderBy("username"),limit(100));
     const snap=await getDocs(q);
     userSearchResults=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>!term||(p.username||"").toLowerCase().includes(term.toLowerCase())||(p.displayName||"").toLowerCase().includes(term.toLowerCase()));
-    host.innerHTML=userSearchResults.map(p=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((p.displayName||p.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(p.displayName||p.username)+'</b><small>@'+escapeHTML(p.username||"creator")+'</small></div><button class="profile-view-action" data-profile-uid="'+escapeHTML(p.uid)+'">View</button><button class="profile-view-action" data-message-username="'+escapeHTML(p.username||"creator")+'">Message</button><button class="follow-action" data-follow-uid="'+escapeHTML(p.uid)+'" data-follow-name="'+escapeHTML(p.username||"creator")+'">Follow</button></div>').join("")||'<div class="empty-state">No accounts found.</div>';
+    const accountMarkup=userSearchResults.map(p=>'<div class="creator-result"><span class="mini-avatar">'+escapeHTML((p.displayName||p.username||"S").charAt(0).toUpperCase())+'</span><div><b>'+escapeHTML(p.displayName||p.username)+'</b><small>@'+escapeHTML(p.username||"creator")+'</small></div><button class="profile-view-action" data-profile-uid="'+escapeHTML(p.uid)+'">View</button><button class="profile-view-action" data-message-username="'+escapeHTML(p.username||"creator")+'">Message</button><button class="follow-action" data-follow-uid="'+escapeHTML(p.uid)+'" data-follow-name="'+escapeHTML(p.username||"creator")+'">Follow</button></div>').join("")||'<div class="empty-state">No accounts found.</div>';
+    let extraMarkup="";
+    if(socialSearchKind==="all"){
+      const term=(socialSearchInput?.value||"").trim().toLowerCase();
+      const foundReels=reels.filter(r=>!term||[r.caption,r.creator,r.username].some(v=>String(v||"").toLowerCase().includes(term))).slice(0,8);
+      const foundMovies=movies.filter(m=>!term||[m.title,m.category,m.description].some(v=>String(v||"").toLowerCase().includes(term))).slice(0,8);
+      if(foundReels.length)extraMarkup+='<div class="result-section"><h3>Reels</h3><div class="search-reel-list">'+foundReels.map(r=>'<button class="search-reel-item" type="button" data-open-reels="1"><span>▶</span><b>'+escapeHTML(r.caption||"Reel")+'</b><small>@'+escapeHTML(r.creator||r.username||"creator")+'</small></button>').join("")+'</div></div>';
+      if(foundMovies.length)extraMarkup+='<div class="result-section"><h3>Movies & topics</h3><div class="search-reel-list">'+foundMovies.map(m=>'<div class="search-reel-item"><span>▣</span><b>'+escapeHTML(m.title||"Movie")+'</b><small>'+escapeHTML(m.category||"")+'</small></div>').join("")+'</div></div>';
+    }
+    host.innerHTML='<div class="result-section"><h3>Accounts</h3>'+accountMarkup+'</div>'+extraMarkup;
   }catch(err){host.innerHTML='<div class="empty-state">Account search needs Firestore user read permissions.</div>';console.warn(err);}
 }
 socialSearchInput?.addEventListener("input",()=>{
