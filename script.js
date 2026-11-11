@@ -5,6 +5,7 @@
 ========================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 import {
   getAuth,
@@ -53,6 +54,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 const db = getFirestore(app, "default");
+const storage = getStorage(app);
 
 const moviesRef = collection(db, "movies");
 
@@ -83,6 +85,7 @@ let activeChatUnsubscribe = null;
 let activeConversationUser = null;
 let socialProfile = null;
 let viewedProfile = null;
+let activeCommentReelId = null;
 
 
 /* =========================================
@@ -1545,14 +1548,9 @@ $("reels-container")?.addEventListener("click", async event => {
   }
   if (action === "comment") {
     if(!currentUser||isAdmin){openSocialAuth("login");return;}
-    const comment=prompt("Write a comment (max 500 characters):");
-    if(comment?.trim()){
-      try{
-        await addDoc(commentsRef,{reelId:id,uid:currentUser.uid,username:socialProfile?.username||"creator",text:comment.trim().slice(0,500),createdAt:serverTimestamp()});
-        const total=await getDocs(query(commentsRef,where("reelId","==",id)));
-        button.querySelector("small").textContent=total.size+" comments";
-      }catch(err){alert("Comment could not be saved: "+err.message);}
-    }
+    activeCommentReelId=id;
+    $("comments-modal").hidden=false;
+    loadReelComments(id);
   }
   if (action === "share" && reel) {
     const shareData = { title:"SolexFLIX Reel", text:reel.caption || "Watch this funny reel", url:location.href };
@@ -1825,28 +1823,95 @@ async function subscribeStories(){
     },err=>console.warn("Stories feed:",err));
   }catch(err){console.warn(err);}
 }
-$("story-add-btn")?.addEventListener("click",async()=>{
+async function uploadSocialMedia(file,folder,maxBytes){
+  if(!file)throw new Error("Choose a file first.");
+  if(file.size>maxBytes)throw new Error("File is too large. Maximum "+Math.round(maxBytes/1024/1024)+" MB.");
+  if(!["image/","video/"].some(type=>file.type.startsWith(type)))throw new Error("Only image or video files are allowed.");
+  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+  const path=folder+"/"+currentUser.uid+"/"+Date.now()+"_"+safeName;
+  const target=storageRef(storage,path);
+  await uploadBytes(target,file,{contentType:file.type});
+  return await getDownloadURL(target);
+}
+$("story-add-btn")?.addEventListener("click",()=>{
   if(!currentUser||isAdmin){openSocialAuth("signup");return;}
-  const mediaUrl=prompt("Paste a direct image or video URL for your 24-hour story:");
-  if(!mediaUrl)return;
+  $("story-file-input")?.click();
+});
+$("story-file-input")?.addEventListener("change",async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  const button=$("story-add-btn");button.disabled=true;
   try{
-    const u=new URL(mediaUrl);if(!["http:","https:"].includes(u.protocol))throw new Error("Use a valid https URL.");
-    await addDoc(storiesRef,{uid:currentUser.uid,username:socialProfile?.username||"creator",mediaUrl:u.href,createdAt:serverTimestamp()});
-  }catch(err){alert("Story could not be published: "+err.message);}
+    const mediaUrl=await uploadSocialMedia(file,"stories",25*1024*1024);
+    await addDoc(storiesRef,{uid:currentUser.uid,username:socialProfile?.username||"creator",mediaUrl,mediaType:file.type,createdAt:serverTimestamp()});
+    e.target.value="";
+  }catch(err){alert("Story upload failed: "+err.message);}
+  finally{button.disabled=false;}
 });
 $("stories-list")?.addEventListener("click",e=>{
   const item=e.target.closest("[data-story-url]");if(!item)return;
-  const url=item.dataset.storyUrl;window.open(url,"_blank","noopener,noreferrer");
+  const url=item.dataset.storyUrl,host=$("story-viewer");
+  $("story-viewer-user").textContent="@"+(item.dataset.storyUser||"creator");
+  const isVideo=/\\.(mp4|webm|mov)(\\?|$)/i.test(url);
+  $("story-viewer-video").hidden=!isVideo;
+  $("story-viewer-image").hidden=isVideo;
+  if(isVideo){$("story-viewer-image").src="";$("story-viewer-video").src=url;$("story-viewer-video").play().catch(()=>{});}
+  else{$("story-viewer-video").pause();$("story-viewer-video").src="";$("story-viewer-image").src=url;}
+  host.hidden=false;
 });
 $("user-reel-form")?.addEventListener("submit",async e=>{
   e.preventDefault();
   if(!currentUser||isAdmin){openSocialAuth("signup");return;}
+  const submit=$("user-reel-form").querySelector('button[type="submit"]');submit.disabled=true;submit.textContent="Uploading…";
   try{
-    const u=new URL($("user-reel-url").value.trim());
+    const file=$("user-reel-file")?.files?.[0];
+    let videoUrl=$("user-reel-url").value.trim();
+    if(file)videoUrl=await uploadSocialMedia(file,"reels",150*1024*1024);
+    if(!videoUrl)throw new Error("Choose a video or paste its direct URL.");
+    const u=new URL(videoUrl);
     if(!["http:","https:"].includes(u.protocol))throw new Error("Invalid video URL.");
     await addDoc(videosRef,{videoUrl:u.href,caption:$("user-reel-caption").value.trim(),creator:socialProfile?.username||"creator",creatorUid:currentUser.uid,likes:0,createdAt:serverTimestamp(),status:"published"});
-    $("user-reel-form").reset();await loadReels();renderProfilePage();alert("Your Reel is published.");
+    $("user-reel-form").reset();await loadReels();await loadOwnReels();renderProfilePage();alert("Your Reel is published.");
   }catch(err){alert("Reel publish failed: "+err.message);}
+  finally{submit.disabled=false;submit.textContent="Publish Reel";}
+});
+document.querySelectorAll("[data-close-viewer]").forEach(btn=>btn.addEventListener("click",()=>{
+  const id=btn.dataset.closeViewer;const el=$(id);if(el)el.hidden=true;
+  if(id==="story-viewer"){$("story-viewer-video").pause();$("story-viewer-video").src="";}
+}));
+async function loadReelComments(reelId){
+  const host=$("reel-comments-list");if(!host)return;
+  host.innerHTML='<div class="empty-state">Loading comments…</div>';
+  try{
+    const snap=await getDocs(query(commentsRef,where("reelId","==",reelId),limit(100)));
+    const rows=snap.docs.map(d=>d.data()).sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+    host.innerHTML=rows.map(c=>'<div class="comment-row"><b>@'+escapeHTML(c.username||"creator")+'</b><span>'+escapeHTML(c.text||"")+'</span></div>').join("")||'<div class="empty-state">Be the first to comment.</div>';
+  }catch(err){host.innerHTML='<div class="empty-state">Comments could not load.</div>';console.warn(err);}
+}
+$("reel-comment-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!currentUser||!activeCommentReelId)return;
+  const input=$("reel-comment-input"),textValue=input.value.trim();if(!textValue)return;
+  const submit=e.submitter; if(submit)submit.disabled=true;
+  try{
+    await addDoc(commentsRef,{reelId:activeCommentReelId,uid:currentUser.uid,username:socialProfile?.username||"creator",text:textValue.slice(0,500),createdAt:serverTimestamp()});
+    input.value="";await loadReelComments(activeCommentReelId);
+  }catch(err){alert("Comment failed: "+err.message);}
+  finally{if(submit)submit.disabled=false;}
+});
+$("profile-content-grid")?.addEventListener("click",e=>{
+  if(e.target.closest("[data-open-reels]"))setActiveAppView("reels-feed");
+});
+document.querySelectorAll(".profile-content-tab").forEach(btn=>btn.addEventListener("click",()=>{
+  document.querySelectorAll(".profile-content-tab").forEach(b=>b.classList.toggle("active",b===btn));
+  const grid=$("profile-content-grid");
+  if(btn.dataset.profileTab==="reels")loadOwnReels();
+  else if(grid)grid.innerHTML='<div class="empty-state">No '+escapeHTML(btn.dataset.profileTab)+' posts yet.</div>';
+}));
+$("start-chat-btn")?.addEventListener("click",()=>{const who=prompt("Enter SolexFLIX username:");if(who)openDirectMessage(who);});
+$("share-profile-btn")?.addEventListener("click",async()=>{
+  const p=viewedProfile||socialProfile,username=p?.username||"solexflix";
+  const url=location.origin+location.pathname+"?user="+encodeURIComponent(username);
+  try{if(navigator.share)await navigator.share({title:"SolexFLIX",text:"Follow @"+username,url});else{await navigator.clipboard.writeText(url);alert("Profile link copied.");}}catch{}
 });
 $("profile-content-grid")?.addEventListener("click",e=>{
   const tile=e.target.closest(".profile-reel-tile");if(tile)setActiveAppView("reels-feed");
