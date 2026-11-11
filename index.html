@@ -56,6 +56,7 @@
     <a href="#" class="logo" id="brand-home">Solex<span>FLIX</span></a>
     <div class="topbar-actions">
       <button id="search-toggle" type="button" aria-label="Search" class="topbar-icon">⌕</button>
+      <button id="account-open" type="button" class="account-open">Sign in</button>
       <button id="admin-open" type="button" class="admin-btn">Admin</button>
     </div>
   </header>
@@ -198,8 +199,17 @@
         <div class="profile-numbers"><div><strong id="profile-post-count">0</strong><span>Posts</span></div><div><strong id="profile-follower-count">0</strong><span>Followers</span></div><div><strong id="profile-following-count">0</strong><span>Following</span></div></div>
       </div>
       <div class="profile-name"><strong id="profile-display-name">SolexFLIX Creator</strong><span id="profile-handle">@solexflix</span><p id="profile-bio">Movies, moments and people. Welcome to the SolexFLIX community.</p></div>
-      <div class="profile-actions"><button id="share-profile-btn" type="button">Share profile</button><button id="admin-shortcut-btn" type="button">Admin panel</button></div>
+      <div class="profile-actions"><button id="share-profile-btn" type="button">Share profile</button><button id="admin-shortcut-btn" type="button">Admin panel</button><button id="profile-signout-btn" type="button" hidden>Sign out</button></div>
       <div class="profile-content-tabs"><button class="profile-content-tab active" data-profile-tab="posts">▦ Posts</button><button class="profile-content-tab" data-profile-tab="reels">▶ Reels</button><button class="profile-content-tab" data-profile-tab="tagged">♙ Tagged</button></div>
+      <div class="profile-publish-tools">
+        <h3>Create on SolexFLIX</h3>
+        <form id="user-reel-form" class="user-publish-form">
+          <input id="user-reel-url" type="url" placeholder="Your direct MP4 / WebM URL" required>
+          <input id="user-reel-caption" type="text" maxlength="180" placeholder="Write a caption" required>
+          <button type="submit">Publish Reel</button>
+          <small>Only upload videos you own or have permission to share.</small>
+        </form>
+      </div>
       <div id="profile-content-grid" class="profile-grid"><div class="empty-state">Your posts and Reels will appear here.</div></div>
     </section>
 
@@ -213,6 +223,26 @@
     <button type="button" class="bottom-nav-btn" data-view="messages-view" aria-label="Inbox"><span class="nav-icon">✉</span><small>Inbox</small><i class="nav-unread-dot" hidden></i></button>
     <button type="button" class="bottom-nav-btn" data-view="profile-view" aria-label="Profile"><span class="nav-icon profile-nav-icon">●</span><small>Profile</small></button>
   </nav>
+
+  <!-- USER ACCOUNT AUTH -->
+  <section id="social-auth-modal" class="social-auth-modal" hidden aria-modal="true" role="dialog" aria-labelledby="social-auth-title">
+    <div class="social-auth-card">
+      <button type="button" id="close-social-auth" class="auth-close" aria-label="Close">×</button>
+      <div class="auth-brand">Solex<span>FLIX</span></div>
+      <h2 id="social-auth-title">Join the community</h2>
+      <p>Follow creators, share Reels and message people.</p>
+      <div class="auth-switch"><button type="button" class="auth-mode active" data-auth-mode="login">Log in</button><button type="button" class="auth-mode" data-auth-mode="signup">Create account</button></div>
+      <form id="social-auth-form">
+        <input id="social-auth-name" type="text" placeholder="Display name" maxlength="40" autocomplete="name" hidden>
+        <input id="social-auth-username" type="text" placeholder="Username" maxlength="24" autocomplete="username" hidden>
+        <input id="social-auth-email" type="email" placeholder="Email address" autocomplete="email" required>
+        <input id="social-auth-password" type="password" placeholder="Password (at least 6 characters)" autocomplete="current-password" minlength="6" required>
+        <button class="primary-btn" type="submit" id="social-auth-submit">Log in</button>
+        <p id="social-auth-message" class="auth-message" aria-live="polite"></p>
+      </form>
+      <small class="auth-terms">Use a real email address. Keep your password private.</small>
+    </div>
+  </section>
 
   <!-- MOVIE DETAILS -->
   <section id="details-section" hidden>
