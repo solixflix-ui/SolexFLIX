@@ -1706,6 +1706,9 @@ const storiesRef = collection(db,"stories");
 const messagesRef = collection(db,"messages");
 const commentsRef = collection(db,"comments");
 const notificationsRef = collection(db,"notifications");
+const acceptedChatsRef = collection(db,"acceptedChats");
+let activeInboxFilter="primary";
+let inboxRows=[];
 let storyUnsubscribe = null;
 let userSearchResults = [];
 
@@ -2064,19 +2067,40 @@ $("social-search-results")?.addEventListener("click",async e=>{
 async function loadInbox(){
   if(!currentUser||isAdmin)return;
   try{
-    const inboxSnap=await getDocs(query(messagesRef,where("participants","array-contains",currentUser.uid),limit(120)));
+    const [inboxSnap,acceptedSnap]=await Promise.all([
+      getDocs(query(messagesRef,where("participants","array-contains",currentUser.uid),limit(120))),
+      getDocs(query(acceptedChatsRef,where("uid","==",currentUser.uid),limit(120)))
+    ]);
+    const accepted=new Set(acceptedSnap.docs.map(d=>d.data().threadId));
     const latest=new Map();
     inboxSnap.docs.forEach(d=>{
       const m=d.data(),other=m.senderUid===currentUser.uid?m.recipientUid:m.senderUid;
       const name=m.senderUid===currentUser.uid?m.recipientUsername:m.senderUsername;
       const previous=latest.get(other);
-      if(!previous||(m.createdAt?.seconds||0)>(previous.createdAt?.seconds||0))latest.set(other,{uid:other,username:name||"creator",text:m.text||"",createdAt:m.createdAt});
+      if(!previous||(m.createdAt?.seconds||0)>(previous.createdAt?.seconds||0))
+        latest.set(other,{uid:other,username:name||"creator",text:m.text||"",createdAt:m.createdAt,threadId:m.threadId,lastSenderUid:m.senderUid});
     });
-    const host=$("conversation-list");if(!host)return;
-    host.innerHTML=[...latest.values()].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)).map(c=>'<button class="conversation-item" type="button" data-chat-user="'+escapeHTML(c.username)+'"><span class="mini-avatar">'+escapeHTML(c.username.charAt(0).toUpperCase())+'</span><span><b>@'+escapeHTML(c.username)+'</b><small>'+escapeHTML(c.text)+'</small></span></button>').join("")||'<div class="empty-state">No messages yet. Search for a creator to start chatting.</div>';
-  }catch(err){console.warn("Inbox load:",err);}
+    inboxRows=[...latest.values()].map(row=>({...row,request:!accepted.has(row.threadId)&&row.lastSenderUid!==currentUser.uid}));
+    renderInbox();
+  }catch(err){console.warn("Inbox load:",err);const host=$("conversation-list");if(host)host.innerHTML='<div class="empty-state">Inbox permissions need to be enabled in Firebase.</div>';}
 }
-$("conversation-list")?.addEventListener("click",e=>{
+function renderInbox(){
+  const host=$("conversation-list");if(!host)return;
+  const rows=inboxRows.filter(row=>activeInboxFilter==="requests"?row.request:!row.request);
+  host.innerHTML=rows.map(c=>'<div class="conversation-row"><button class="conversation-item" type="button" data-chat-user="'+escapeHTML(c.username)+'"><span class="mini-avatar">'+escapeHTML(c.username.charAt(0).toUpperCase())+'</span><span><b>@'+escapeHTML(c.username)+'</b><small>'+escapeHTML(c.text)+'</small></span></button>'+(c.request?'<button type="button" class="accept-request" data-accept-thread="'+escapeHTML(c.threadId)+'" data-chat-user="'+escapeHTML(c.username)+'">Accept</button>':'')+'</div>').join("")||'<div class="empty-state">'+(activeInboxFilter==="requests"?"No message requests.":"No messages yet. Search for a creator to start chatting.")+'</div>';
+}
+document.querySelectorAll("[data-inbox-filter]").forEach(btn=>btn.addEventListener("click",()=>{
+  activeInboxFilter=btn.dataset.inboxFilter||"primary";
+  document.querySelectorAll("[data-inbox-filter]").forEach(b=>b.classList.toggle("active",b===btn));
+  renderInbox();
+}));
+$("conversation-list")?.addEventListener("click",async e=>{
+  const accept=e.target.closest("[data-accept-thread]");
+  if(accept){
+    try{await setDoc(doc(db,"acceptedChats",currentUser.uid+"_"+accept.dataset.acceptThread),{uid:currentUser.uid,threadId:accept.dataset.acceptThread,acceptedAt:serverTimestamp()});await loadInbox();openDirectMessage(accept.dataset.chatUser);}
+    catch(err){alert("Could not accept request: "+err.message);}
+    return;
+  }
   const item=e.target.closest("[data-chat-user]");if(item)openDirectMessage(item.dataset.chatUser);
 });
 async function openDirectMessage(username){
@@ -2092,6 +2116,7 @@ async function openDirectMessage(username){
     $("chat-panel").innerHTML='<div class="chat-header"><span class="mini-avatar">'+escapeHTML((target.username||"S").charAt(0).toUpperCase())+'</span><b>@'+escapeHTML(target.username)+'</b></div><div class="chat-messages" id="chat-messages"></div><form class="chat-compose" id="chat-compose"><input id="chat-message-input" maxlength="2000" placeholder="Write a message..." autocomplete="off"><button type="submit">➤</button></form>';
     const participants=[currentUser.uid,target.uid].sort();
     const threadId=participants.join("_");
+    await setDoc(doc(db,"acceptedChats",currentUser.uid+"_"+threadId),{uid:currentUser.uid,threadId,acceptedAt:serverTimestamp()},{merge:true});
     if(activeChatUnsubscribe)activeChatUnsubscribe();
     activeChatUnsubscribe=onSnapshot(query(messagesRef,where("participants","array-contains",currentUser.uid),limit(100)),snap=>{
       const box=$("chat-messages");if(!box)return;
