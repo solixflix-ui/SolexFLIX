@@ -993,6 +993,7 @@ onAuthStateChanged(auth, async (user) => {
   if (user && !isAdmin) {
     await loadSocialProfile(user);
     subscribeStories();
+    subscribeNotifications();
   } else {
     socialProfile = null;
     renderProfilePage();
@@ -1551,6 +1552,7 @@ $("reels-container")?.addEventListener("click", async event => {
       }else{
         await setDoc(likeRef,{uid:currentUser.uid,reelId:id,createdAt:serverTimestamp()});
         await updateDoc(doc(db,"videos",id),{likes:increment(1)});
+        await notifyUser(reel?.creatorUid,"like","liked your Reel",{reelId:id});
         likedReelIds.add(id);
         button.classList.add("is-liked");
       }
@@ -1700,9 +1702,38 @@ const followsRef = collection(db,"follows");
 const storiesRef = collection(db,"stories");
 const messagesRef = collection(db,"messages");
 const commentsRef = collection(db,"comments");
+const notificationsRef = collection(db,"notifications");
 let storyUnsubscribe = null;
 let userSearchResults = [];
 
+
+let notificationUnsubscribe=null;
+async function notifyUser(recipientUid,type,message,extra={}){
+  if(!currentUser||!recipientUid||recipientUid===currentUser.uid)return;
+  try{await addDoc(notificationsRef,{recipientUid,actorUid:currentUser.uid,actorUsername:socialProfile?.username||"creator",type,message,read:false,createdAt:serverTimestamp(),...extra});}
+  catch(err){console.warn("Notification write:",err);}
+}
+function subscribeNotifications(){
+  if(notificationUnsubscribe)notificationUnsubscribe();
+  if(!currentUser||isAdmin)return;
+  notificationUnsubscribe=onSnapshot(query(notificationsRef,where("recipientUid","==",currentUser.uid),limit(60)),snap=>{
+    const rows=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    const unread=rows.some(n=>!n.read);
+    if($("notification-dot"))$("notification-dot").hidden=!unread;
+    const host=$("notifications-list");
+    if(host)host.innerHTML=rows.map(n=>'<button class="notification-row '+(!n.read?"unread":"")+'" type="button" data-notification-id="'+escapeHTML(n.id)+'" data-notification-reel="'+escapeHTML(n.reelId||"")+'"><span class="mini-avatar">'+escapeHTML((n.actorUsername||"S").charAt(0).toUpperCase())+'</span><span><b>@'+escapeHTML(n.actorUsername||"creator")+'</b> '+escapeHTML(n.message||"interacted with you")+'<small>'+new Date((n.createdAt?.seconds||0)*1000).toLocaleString()+'</small></span></button>').join("")||'<div class="empty-state">You are all caught up.</div>';
+  },err=>console.warn("Notifications:",err));
+}
+$("notifications-open")?.addEventListener("click",()=>{
+  if(!currentUser||isAdmin){openSocialAuth("login");return;}
+  $("notifications-modal").hidden=false;
+});
+$("notifications-list")?.addEventListener("click",async e=>{
+  const row=e.target.closest("[data-notification-id]");if(!row)return;
+  try{await updateDoc(doc(db,"notifications",row.dataset.notificationId),{read:true});}catch{}
+  $("notifications-modal").hidden=true;
+  if(row.dataset.notificationReel)setActiveAppView("reels-feed");
+});
 function updateAccountControls(){
   const signed=!!currentUser && !isAdmin;
   const button=$("account-open");
@@ -1820,7 +1851,7 @@ $("profile-follow-btn")?.addEventListener("click",async()=>{
   try{
     const snap=await getDoc(ref);
     if(snap.exists()){await deleteDoc(ref);btn.textContent="Follow";btn.classList.remove("is-following");}
-    else{await setDoc(ref,{followerUid:currentUser.uid,followingUid:targetUid,createdAt:serverTimestamp()});btn.textContent="Following";btn.classList.add("is-following");}
+    else{await setDoc(ref,{followerUid:currentUser.uid,followingUid:targetUid,createdAt:serverTimestamp()});btn.textContent="Following";btn.classList.add("is-following");await notifyUser(targetUid,"follow","started following you");}
     renderProfilePage();
   }catch(err){alert("Follow update failed: "+err.message);}
 });
@@ -2007,7 +2038,7 @@ $("social-search-results")?.addEventListener("click",async e=>{
   try{
     const ref=doc(db,"follows",followId),snap=await getDoc(ref);
     if(snap.exists()){await deleteDoc(ref);btn.textContent="Follow";}
-    else{await setDoc(ref,{followerUid:currentUser.uid,followingUid:target,createdAt:serverTimestamp()});btn.textContent="Following";}
+    else{await setDoc(ref,{followerUid:currentUser.uid,followingUid:target,createdAt:serverTimestamp()});btn.textContent="Following";await notifyUser(target,"follow","started following you");}
   }catch(err){alert("Follow update failed: "+err.message);}
 });
 
