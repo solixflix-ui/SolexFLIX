@@ -2252,7 +2252,7 @@ async function startOutgoingCall(target,kind){
     currentCallId=callRef.id;activeCall={target,role:"caller"};
     await preparePeer(currentCallId,"caller");
     const offer=await callPeer.createOffer();await callPeer.setLocalDescription(offer);
-    await setDoc(callRef,{callerUid:currentUser.uid,calleeUid:target.uid,callerName:socialProfile?.username||"creator",calleeName:target.username,kind,status:"ringing",offer:{type:offer.type,sdp:offer.sdp},createdAt:serverTimestamp()});
+    await setDoc(callRef,{callerUid:currentUser.uid,calleeUid:target.uid,participants:[currentUser.uid,target.uid],callerName:socialProfile?.username||"creator",calleeName:target.username,kind,status:"ringing",offer:{type:offer.type,sdp:offer.sdp},createdAt:serverTimestamp()});
     watchCallDoc(currentCallId);
     activeCallUnsubs.push(onSnapshot(doc(db,"calls",currentCallId),async snap=>{
       const data=snap.data();if(data?.answer&&!callPeer?.currentRemoteDescription){await callPeer?.setRemoteDescription(new RTCSessionDescription(data.answer));}
