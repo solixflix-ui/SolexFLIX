@@ -1397,6 +1397,7 @@ if ($("logout-btn")) {
 // Video files must be hosted at an authorized direct URL.
 const videosRef = collection(db, "videos");
 let reels = [];
+let likedReelIds = new Set();
 let reelsObserver = null;
 // Keep the existing Adsterra homepage slot and mount it inside the Reels feed.
 const homepageAdSlot = $("website-section")?.querySelector(".ad-slot-home") || document.querySelector(".ad-slot-home");
@@ -1410,8 +1411,7 @@ function safeVideoUrl(value = "") {
 
 function getLikedReels() {
   try {
-    const saved = JSON.parse(localStorage.getItem("solexflix_liked_reels") || "[]");
-    return Array.isArray(saved) ? saved.filter(id => typeof id === "string") : [];
+    return Array.from(likedReelIds);
   } catch {
     return [];
   }
@@ -1423,7 +1423,7 @@ function reelMarkup(reel) {
   const id = escapeHTML(reel.id);
   const caption = escapeHTML(reel.caption || reel.description || "A little laugh for your day");
   const creator = escapeHTML(reel.creator || reel.username || "SolexFLIX");
-  const liked = getLikedReels().includes(reel.id);
+  const liked = likedReelIds.has(reel.id);
   const likes = Math.max(0, Number(reel.likes || 0));
   return `
     <article class="reel-card" data-reel-id="${id}">
@@ -1486,6 +1486,11 @@ async function loadReels() {
   if (!container) return;
   try {
     const snap = await getDocs(videosRef);
+    likedReelIds = new Set();
+    if(currentUser&&!isAdmin){
+      const likesSnap=await getDocs(query(collection(db,"reelLikes"),where("uid","==",currentUser.uid),limit(500)));
+      likesSnap.docs.forEach(d=>{const id=d.data().reelId;if(id)likedReelIds.add(id);});
+    }
     reels = snap.docs.map(d => ({ id:d.id, ...d.data() }))
       .filter(r => safeVideoUrl(r.videoUrl || r.video || r.url))
       .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -1534,10 +1539,12 @@ $("reels-container")?.addEventListener("click", async event => {
       if(existing.exists()){
         await deleteDoc(likeRef);
         await updateDoc(doc(db,"videos",id),{likes:increment(-1)});
+        likedReelIds.delete(id);
         button.classList.remove("is-liked");
       }else{
         await setDoc(likeRef,{uid:currentUser.uid,reelId:id,createdAt:serverTimestamp()});
         await updateDoc(doc(db,"videos",id),{likes:increment(1)});
+        likedReelIds.add(id);
         button.classList.add("is-liked");
       }
       const updated=await getDoc(doc(db,"videos",id));
@@ -1851,7 +1858,8 @@ $("stories-list")?.addEventListener("click",e=>{
   const item=e.target.closest("[data-story-url]");if(!item)return;
   const url=item.dataset.storyUrl,host=$("story-viewer");
   $("story-viewer-user").textContent="@"+(item.dataset.storyUser||"creator");
-  const isVideo=/\\.(mp4|webm|mov)(\\?|$)/i.test(url);
+  const cleanUrl=url.split("?")[0].toLowerCase();
+  const isVideo=[".mp4",".webm",".mov"].some(ext=>cleanUrl.endsWith(ext));
   $("story-viewer-video").hidden=!isVideo;
   $("story-viewer-image").hidden=isVideo;
   if(isVideo){$("story-viewer-image").src="";$("story-viewer-video").src=url;$("story-viewer-video").play().catch(()=>{});}
