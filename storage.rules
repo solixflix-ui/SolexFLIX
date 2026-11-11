@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+    match /reels/{uid}/{fileName} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.size < 150 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*');
+      allow update, delete: if signedIn() && request.auth.uid == uid;
+    }
+    match /stories/{uid}/{fileName} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.size < 25 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('video/.*'));
+      allow update, delete: if signedIn() && request.auth.uid == uid;
+    }
+  }
+}
