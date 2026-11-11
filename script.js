@@ -1657,11 +1657,6 @@ function renderSocialSearch() {
   if((socialSearchKind==="all"||socialSearchKind==="tags")&&movieItems.length)parts.push('<div class="result-section"><h3>Movies & topics</h3><div class="search-reel-list">'+movieItems.slice(0,12).map(m=>'<div class="search-reel-item"><span>▣</span><b>'+escapeHTML(m.title||"Movie")+'</b><small>'+escapeHTML(m.category||"")+'</small></div>').join("")+'</div></div>');
   host.innerHTML=parts.join("")||'<div class="empty-state">No results found. Try another name or keyword.</div>';
 }
-socialSearchInput?.addEventListener("input",()=>{
-  const term=socialSearchInput.value.trim();
-  if(socialSearchKind==="all"||socialSearchKind==="accounts")searchAccounts(term);
-  else renderSocialSearch();
-});
 document.querySelectorAll(".search-tab").forEach(btn=>btn.addEventListener("click",()=>{
   socialSearchKind=btn.dataset.searchKind||"all";
   document.querySelectorAll(".search-tab").forEach(b=>b.classList.toggle("active",b===btn));
@@ -2044,7 +2039,7 @@ async function searchAccounts(term){
 }
 socialSearchInput?.addEventListener("input",()=>{
   const term=socialSearchInput.value.trim();
-  if(socialSearchKind==="accounts"||socialSearchKind==="all")searchAccounts(term);
+  if(socialSearchKind==="all"||socialSearchKind==="accounts")searchAccounts(term);
   else renderSocialSearch();
 });
 $("social-search-results")?.addEventListener("click",async e=>{
@@ -2119,7 +2114,8 @@ async function openDirectMessage(username){
     if(activeChatUnsubscribe)activeChatUnsubscribe();
     activeChatUnsubscribe=onSnapshot(query(messagesRef,where("participants","array-contains",currentUser.uid),limit(100)),snap=>{
       const box=$("chat-messages");if(!box)return;
-      box.innerHTML=snap.docs.map(d=>{const m=d.data();return '<div class="chat-bubble '+(m.senderUid===currentUser.uid?"own":"")+'">'+escapeHTML(m.text||"")+'</div>';}).join("");
+      const threadMessages=snap.docs.map(d=>({id:d.id,...d.data()})).filter(m=>m.threadId===threadId).sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+      box.innerHTML=threadMessages.map(m=>'<div class="chat-bubble '+(m.senderUid===currentUser.uid?"own":"")+'">'+escapeHTML(m.text||"")+'</div>').join("")||'<div class="empty-state">Say hello and start the conversation.</div>';
       box.scrollTop=box.scrollHeight;
     },err=>console.warn("Message listener",err));
     $("chat-compose").addEventListener("submit",async ev=>{
