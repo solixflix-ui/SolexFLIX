@@ -206,7 +206,7 @@ export default {
           if (query.length < 2) return jsonResponse({ error: "Enter at least 2 characters." }, 400, 0);
           pagination.set("query", query);
           path = "/search/" + (type === "shows" ? "show" : "movie") + "?" + pagination.toString();
-        } else path = "/" + type + (feed === "recent" ? "/recently_watched?" : "/trending?") + pagination.toString();
+        } else path = "/" + type + (feed === "recent" ? "/watched?" : "/trending?") + pagination.toString();
         const data = await traktJson(path, env);
         const results = await normalizeTraktItems(data, type, env);
         return jsonResponse({ results, page, hasMore: Array.isArray(data) && data.length === limit }, 200, 60);
