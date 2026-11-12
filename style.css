@@ -1444,3 +1444,14 @@ body.viewer-open { overflow: hidden; }
 .link-editor-trakt-details > div { padding:12px; border:1px solid #383838; border-radius:10px; background:#202020; }
 .link-editor-trakt-details dt { color:#aaa; font-size:.9rem; margin-bottom:5px; }
 .link-editor-trakt-details dd { margin:0; color:#fff; overflow-wrap:anywhere; white-space:pre-wrap; }
+
+
+/* Separate sections inside the single Edit dialog. */
+.link-editor-screenshot-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #444;
+}
+.link-editor-screenshot-section h3 { margin: 0 0 10px; }
+#link-editor-poster-panel[hidden],
+#link-editor-link-panel[hidden] { display: none !important; }
