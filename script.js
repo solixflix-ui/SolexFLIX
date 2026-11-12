@@ -1450,10 +1450,16 @@ const traktSearchInput = $("trakt-search-input");
 let traktType = "movies";
 let traktRequestSequence = 0;
 
-function traktImageUrl(rawUrl) {
+function traktSourceImageUrl(rawUrl) {
   if (!rawUrl) return "";
-  const source = String(rawUrl).startsWith("http") ? rawUrl : "https://" + rawUrl;
-  return "/api/trakt/image?url=" + encodeURIComponent(source);
+  const raw = String(rawUrl).trim();
+  return raw.startsWith("//") ? "https:" + raw
+    : (/^https?:\/\//i.test(raw) ? raw : "https://" + raw.replace(/^\/+/, ""));
+}
+
+function traktImageUrl(rawUrl) {
+  const source = traktSourceImageUrl(rawUrl);
+  return source ? "/api/trakt/image?url=" + encodeURIComponent(source) : "";
 }
 
 let traktVisibleItems = [];
@@ -1464,14 +1470,16 @@ function traktMovieCard(item, index) {
     String(movie.title || "").trim().toLowerCase() === String(title).trim().toLowerCase() &&
     (!item.year || !movie.year || String(movie.year) === String(item.year))
   );
-  const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
+  const directPoster = traktSourceImageUrl(item.poster);
+  const proxyPoster = traktImageUrl(item.poster);
+  const poster = directPoster || (localMatch ? getPoster(localMatch) : "");
   const year = item.year || "";
   const rating = Number(item.rating || 0);
   const kind = item.type === "show" ? "Web Series" : "Movie";
   return `
     <article class="movie-card trakt-card" data-trakt-index="${index}" role="button" tabindex="0" aria-label="View details for ${escapeHTML(title)}">
       <div class="movie-poster">
-        ${poster ? `<img src="${escapeHTML(poster)}" alt="${escapeHTML(title)}" loading="lazy" onerror="this.closest('.movie-poster').classList.add('poster-unavailable');this.remove()">` : '<div class="poster-unavailable"></div>'}
+        ${poster ? `<img src="${escapeHTML(poster)}" data-proxy-src="${escapeHTML(proxyPoster)}" alt="${escapeHTML(title)}" loading="lazy" onerror="if(this.dataset.proxySrc && this.src!==this.dataset.proxySrc){this.src=this.dataset.proxySrc;this.dataset.proxySrc='';}else{this.closest('.movie-poster').classList.add('poster-unavailable');this.remove();}">` : '<div class="poster-unavailable"></div>'}
         <span class="trakt-kind">${kind}</span>
         ${rating ? `<span class="movie-rating">★ ${rating.toFixed(1)}</span>` : ""}
       </div>
