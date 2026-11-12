@@ -367,7 +367,7 @@ function renderMoviePagination() {
 
   // Trakt does not provide a total page count, so show a useful numbered
   // window and keep Next available whenever the API confirms another page.
-  const visiblePageCount = Math.max(5, traktCurrentPage + 2);
+  const visiblePageCount = traktCurrentPage + (traktHasMore ? 1 : 0);
   const pages = [];
   for (let page = 1; page <= visiblePageCount; page++) pages.push(page);
 
@@ -521,7 +521,7 @@ if (moviePagination) {
     if (!button || button.disabled) return;
     const targetPage = Number(button.dataset.page);
     if (Number.isInteger(targetPage) && targetPage >= 1 && targetPage !== traktCurrentPage) {
-      if (targetPage < traktCurrentPage || (targetPage === traktCurrentPage + 1 && traktHasMore) || targetPage > traktCurrentPage + 1) {
+      if (targetPage < traktCurrentPage || (targetPage === traktCurrentPage + 1 && traktHasMore)) {
         loadTraktDiscovery(traktCurrentQuery, targetPage);
       }
     }
