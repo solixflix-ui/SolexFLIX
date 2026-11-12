@@ -194,6 +194,10 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/trakt/discover" || url.pathname === "/api/trakt/search") {
+      const cache = caches.default;
+      const cacheKey = new Request(url.toString(), { method: "GET" });
+      const cachedResponse = await cache.match(cacheKey);
+      if (cachedResponse) return cachedResponse;
       try {
         const type = url.searchParams.get("type") === "shows" ? "shows" : "movies";
         const query = String(url.searchParams.get("q") || "").trim().slice(0, 100);
@@ -209,7 +213,9 @@ export default {
         } else path = "/" + type + (feed === "recent" ? "/watched?" : "/trending?") + pagination.toString();
         const data = await traktJson(path, env);
         const results = await normalizeTraktItems(data, type, env);
-        return jsonResponse({ results, page, hasMore: Array.isArray(data) && data.length === limit }, 200, 60);
+        const response = jsonResponse({ results, page, hasMore: Array.isArray(data) && data.length === limit }, 200, 180);
+        await cache.put(cacheKey, response.clone());
+        return response;
       } catch (error) {
         return jsonResponse({ error: error.message || "Trakt service unavailable." }, 502, 0);
       }
