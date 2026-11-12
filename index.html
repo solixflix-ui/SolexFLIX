@@ -197,6 +197,12 @@
           <p id="details-description"></p>
           <button id="trakt-admin-add" class="secondary-btn" type="button" hidden>Add this title &amp; manage links</button>
 
+          <div id="movie-video-container" class="movie-video-container" hidden>
+            <h2>Watch Video</h2>
+            <video id="movie-video-player" controls playsinline preload="metadata"></video>
+            <iframe id="movie-video-embed" title="Movie Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen hidden></iframe>
+          </div>
+
           <div id="trailer-container" hidden>
             <h2>Official Trailer</h2>
             <iframe
@@ -328,6 +334,7 @@
         <input id="movie-rating" type="number" min="0" max="10" step="0.1" placeholder="Rating (0–10)">
         <input id="movie-poster-url" type="url" placeholder="Poster URL (optional, for Trakt titles)">
 
+        <input id="movie-video-url" type="url" placeholder="Movie / Episode Video URL (MP4, WebM, YouTube or Vimeo) — optional">
         <input id="movie-trailer-url" type="url" placeholder="YouTube Trailer URL (optional)">
 
         <h3 class="admin-subheading">External Download Page Links</h3>
