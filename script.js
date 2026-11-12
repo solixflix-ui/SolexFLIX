@@ -985,7 +985,12 @@ document.addEventListener("click", (event) => {
 if ($("close-admin-login")) {
   $("close-admin-login").addEventListener("click", () => {
     hideSection(loginSection);
-    showSection(websiteSection);
+    if (returnToDetailsAfterAdminLogin) {
+      returnToDetailsAfterAdminLogin = false;
+      if (pendingTraktItem) openTraktDetails(pendingTraktItem);
+      else if (currentMovieId) openMovieDetails(currentMovieId, false);
+      else showSection(websiteSection);
+    } else showSection(websiteSection);
   });
 }
 
