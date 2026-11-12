@@ -83,6 +83,20 @@
         <input id="trakt-search-input" type="search" placeholder="Search movies or web series..." minlength="2" maxlength="100" aria-label="Search movies and web series">
         <button class="primary-btn" type="submit">Search</button>
       </form>
+      <div class="ad-slot ad-slot-home" aria-label="Advertisement">
+        <div class="ad-label">Advertisement</div>
+        <script>
+          atOptions = {
+            'key' : 'ed91b0bd9402bbe09d516dec0dbd0495',
+            'format' : 'iframe',
+            'height' : 250,
+            'width' : 300,
+            'params' : {}
+          };
+        </script>
+        <script src="https://bancadeltempoidea.org/22/ed91b0bd9402bbe09d516dec0dbd0495"></script>
+      </div>
+      <div id="monetag-ad-slot" class="monetag-ad-slot" aria-label="Advertisement"></div>
       <p id="trakt-status" class="trakt-status" aria-live="polite">Loading trending titles...</p>
       <div id="movie-grid" class="movie-grid"></div>
       <div id="movie-pagination" class="movie-pagination" aria-label="Movie pages"></div>
@@ -123,20 +137,6 @@
     <section class="movie-section" id="trending" hidden>
       <h2 class="section-title">Trending Now</h2>
       <div id="trending-list" class="movie-grid"></div>
-      <!-- Adsterra 300x250 banner: Homepage -->
-      <div class="ad-slot ad-slot-home" aria-label="Advertisement">
-        <div class="ad-label">Advertisement</div>
-        <script>
-          atOptions = {
-            'key' : 'ed91b0bd9402bbe09d516dec0dbd0495',
-            'format' : 'iframe',
-            'height' : 250,
-            'width' : 300,
-            'params' : {}
-          };
-        </script>
-        <script src="https://bancadeltempoidea.org/22/ed91b0bd9402bbe09d516dec0dbd0495"></script>
-      </div>
     </section>
 <!-- CONTINUE WATCHING -->
 
@@ -225,7 +225,6 @@
       </div>
       <section class="watch-more-area" id="watch-more-area" hidden aria-live="polite">
         <h2>Link</h2>
-        <div id="monetag-ad-slot" class="monetag-ad-slot" aria-label="Advertisement"></div>
         <div class="download-area" id="download-area" hidden>
           <h3>Choose Download Quality</h3>
           <div id="download-buttons" class="download-buttons"></div>
