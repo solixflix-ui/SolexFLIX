@@ -144,7 +144,7 @@ async function normalizeTraktItems(items, type, env) {
     if (value && typeof value === "object") return value.full || value.medium || value.thumb || "";
     return typeof value === "string" ? value : "";
   };
-  return Promise.all((Array.isArray(items) ? items : []).map(async (entry) => {
+  const normalizedItems = await Promise.all((Array.isArray(items) ? items : []).map(async (entry) => {
     const isShow = !!entry.show || type === "shows";
     let media = entry.movie || entry.show || entry;
     let images = media.images || {};
@@ -171,7 +171,8 @@ async function normalizeTraktItems(items, type, env) {
       poster: imageValue(images.poster),
       backdrop: imageValue(images.fanart)
     };
-  })).filter((item) => item.title);
+  }));
+  return normalizedItems.filter((item) => item && item.title);
 }
 function jsonResponse(data, status = 200, cache = 60) {
   return new Response(JSON.stringify(data), { status, headers: {
