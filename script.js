@@ -1472,3 +1472,4 @@ if (traktSearchForm) {
 ========================================= */
 
 loadMovies();
+loadTraktDiscovery();
