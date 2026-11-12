@@ -1431,6 +1431,7 @@ function traktImageUrl(rawUrl) {
 }
 
 let traktVisibleItems = [];
+let activeCatalogFeed = "trending";
 
 function traktMovieCard(item, index) {
   const title = item.title || "Untitled";
@@ -1613,23 +1614,24 @@ if (traktResults) {
   });
 }
 
-async function loadTraktDiscovery(query = "", page = 1) {
+async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed) {
   if (!traktResults || !traktStatus) return;
   const requestId = ++traktRequestSequence;
   traktCurrentQuery = String(query || "").trim();
+  activeCatalogFeed = feed === "recent" ? "recent" : "trending";
   traktCurrentPage = Math.max(1, Number(page) || 1);
   traktLoading = true;
   renderMoviePagination();
   traktStatus.textContent = query ? "Searching catalogue..." : "Loading movies and web series...";
   try {
-    const params = new URLSearchParams({ type: traktType, page: String(traktCurrentPage) });
+    const params = new URLSearchParams({ type: traktType, page: String(traktCurrentPage), feed: activeCatalogFeed });
     const endpoint = query ? (params.set("q", query), "/api/trakt/search?" + params.toString()) : "/api/trakt/discover?" + params.toString();
     const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
     const data = await response.json();
     if (requestId !== traktRequestSequence) return;
     if (!response.ok) throw new Error(data.error || "Catalogue request failed.");
     renderTraktResults(data.results || [], !!data.hasMore);
-    traktStatus.textContent = query ? `Search results for “${query}” · Page ${traktCurrentPage}` : `Trending ${traktType === "shows" ? "web series" : "movies"} · Page ${traktCurrentPage}`;
+    traktStatus.textContent = query ? `Search results for “${query}” · Page ${traktCurrentPage}` : `${activeCatalogFeed === "recent" ? "Recent" : "Trending"} ${traktType === "shows" ? "web series" : "movies"} · Page ${traktCurrentPage}`;
   } catch (error) {
     if (requestId !== traktRequestSequence) return;
     traktVisibleItems = [];
@@ -1665,6 +1667,39 @@ if (traktSearchForm) {
   });
 }
 
+// Navbar catalogue tabs behave like separate pages while keeping the shared catalogue layout.
+function showCatalogPage(view) {
+  const nextView = ["home", "discover", "trending", "recent"].includes(view) ? view : "home";
+  const heading = document.querySelector("#discover .section-title");
+  const subtitle = document.querySelector("#discover .trakt-subtitle");
+  if (heading) heading.textContent = nextView === "trending" ? "Trending Now" : nextView === "recent" ? "Recently Watched" : "Explore Movies & Web Series";
+  if (subtitle) subtitle.textContent = nextView === "trending" ? "Popular movies and web series right now." : nextView === "recent" ? "Recently watched movies and web series." : "Your SolexFLIX movies and trending catalogue in one place.";
+  if (searchBox) searchBox.hidden = true;
+  if (searchInput) searchInput.value = "";
+  activeMovieSearch = "";
+  setSearchSectionsHidden(false);
+  // Keep the legacy homepage rows hidden; the selected page uses the single main catalogue grid.
+  [ $("home"), trendingList?.closest(".movie-section"), recentList?.closest(".movie-section"),
+    categoryList?.closest(".movie-section"), continueWatchingSection, watchHistorySection
+  ].forEach(section => { if (section) section.hidden = true; });
+  activeCatalogFeed = nextView === "recent" ? "recent" : "trending";
+  if (nextView === "trending" || nextView === "recent" || nextView === "home" || nextView === "discover") {
+    loadTraktDiscovery("", 1, activeCatalogFeed);
+  }
+  document.querySelectorAll("[data-catalog-view]").forEach(link => {
+    link.classList.toggle("active", link.dataset.catalogView === nextView);
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+document.querySelectorAll("[data-catalog-view]").forEach(link => {
+  link.addEventListener("click", event => {
+    event.preventDefault();
+    const view = link.dataset.catalogView;
+    history.pushState({ catalogView: view }, "", "#" + view);
+    showCatalogPage(view);
+  });
+});
+window.addEventListener("popstate", () => showCatalogPage(location.hash.slice(1) || "home"));
 
 /* =========================================
    26. START WEBSITE
