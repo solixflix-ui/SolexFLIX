@@ -722,6 +722,8 @@ currentMovieId = id;
   showSection(detailsSection);
   loadMovieDetailsAd();
 
+  linkEditorMovieId = movie.id;
+  if ($("details-admin-controls")) $("details-admin-controls").hidden = !isAdmin;
   if ($("details-poster")) {
     $("details-poster").src = getPoster(movie);
   }
@@ -1591,9 +1593,10 @@ function openTraktDetails(item) {
   const proxyPoster = traktImageUrl(item.poster);
   const detailPoster = $("details-poster");
   const adminAddButton = $("trakt-admin-add");
-  const adminEditLinksButton = $("trakt-admin-edit-links");
+  const adminControls = $("details-admin-controls");
   if (adminAddButton) adminAddButton.hidden = !!localMatch || !isAdmin;
-  if (adminEditLinksButton) adminEditLinksButton.hidden = !localMatch || !isAdmin;
+  if (adminControls) adminControls.hidden = !localMatch || !isAdmin;
+  if (localMatch) linkEditorMovieId = localMatch.id;
   if (detailPoster) {
     detailPoster.onerror = () => {
       if (proxyPoster && detailPoster.src !== proxyPoster) detailPoster.src = proxyPoster;
@@ -1671,13 +1674,9 @@ $("trakt-admin-add")?.addEventListener("click", () => {
 });
 
 function openLinkEditor() {
-  if (!isAdmin || !pendingTraktItem) return;
-  const match = movies.find(movie =>
-    String(movie.title || "").trim().toLowerCase() === String(pendingTraktItem.title || "").trim().toLowerCase() &&
-    (!pendingTraktItem.year || !movie.year || String(movie.year) === String(pendingTraktItem.year))
-  );
+  if (!isAdmin || !linkEditorMovieId) return;
+  const match = movies.find(movie => movie.id === linkEditorMovieId);
   if (!match) return;
-  linkEditorMovieId = match.id;
   $("link-editor-title").textContent = "Add links & screenshots — " + (match.title || "Movie");
   ["link-editor-video", "link-editor-trailer", "link-editor-480", "link-editor-720", "link-editor-1080", "link-editor-screenshots"].forEach(id => { $(id).value = ""; });
   $("link-editor-message").textContent = "";
@@ -1698,7 +1697,46 @@ function setLinkEditorTab(tab) {
   $("link-editor-tab-screenshots").classList.toggle("active", screenshots);
 }
 
-$("trakt-admin-edit-links")?.addEventListener("click", openLinkEditor);
+$("details-edit-links")?.addEventListener("click", openLinkEditor);
+
+$("details-edit-poster")?.addEventListener("click", () => {
+  if (!isAdmin || !linkEditorMovieId) return;
+  const movie = movies.find(item => item.id === linkEditorMovieId);
+  if (!movie) return;
+  $("poster-editor-title").textContent = "Edit Poster — " + (movie.title || "Movie");
+  $("poster-editor-url").value = "";
+  $("poster-editor-file").value = "";
+  $("poster-editor-message").textContent = "";
+  $("poster-editor-modal").hidden = false;
+});
+
+$("poster-editor-close")?.addEventListener("click", () => { $("poster-editor-modal").hidden = true; });
+
+$("poster-editor-save")?.addEventListener("click", async () => {
+  if (!isAdmin || !linkEditorMovieId) return;
+  const file = $("poster-editor-file").files[0];
+  const url = $("poster-editor-url").value.trim();
+  if (!file && !url) {
+    $("poster-editor-message").textContent = "Poster image upload karo ya valid image URL do.";
+    return;
+  }
+  if (!file && !isSafeHttpUrl(url)) {
+    $("poster-editor-message").textContent = "Valid http:// ya https:// poster URL do.";
+    return;
+  }
+  const button = $("poster-editor-save");
+  button.disabled = true;
+  try {
+    const poster = file ? await uploadPoster(file) : url;
+    await updateDoc(doc(db, "movies", linkEditorMovieId), { poster, updatedAt: serverTimestamp() });
+    movies = movies.map(movie => movie.id === linkEditorMovieId ? { ...movie, poster } : movie);
+    $("details-poster").src = poster;
+    renderAll();
+    $("poster-editor-message").textContent = "Poster alag se save ho gaya. Baaki Trakt details same hain.";
+  } catch (error) {
+    $("poster-editor-message").textContent = error.message || "Poster save nahi ho paaya.";
+  } finally { button.disabled = false; }
+});
 $("link-editor-close")?.addEventListener("click", closeLinkEditor);
 $("link-editor-tab-link")?.addEventListener("click", () => setLinkEditorTab("link"));
 $("link-editor-tab-screenshots")?.addEventListener("click", () => setLinkEditorTab("screenshots"));

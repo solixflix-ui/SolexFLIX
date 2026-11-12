@@ -188,7 +188,13 @@
       </button>
 
       <div class="details-container">
-        <img id="details-poster" src="" alt="Movie Poster">
+        <div class="details-poster-column">
+          <img id="details-poster" src="" alt="Movie Poster">
+          <div id="details-admin-controls" class="details-admin-controls" hidden>
+            <button id="details-edit-poster" class="secondary-btn" type="button">Edit Poster</button>
+            <button id="details-edit-links" class="secondary-btn" type="button">Edit Screenshots &amp; Download Links</button>
+          </div>
+        </div>
 
         <div class="details-info">
           <h1 id="details-title"></h1>
@@ -197,7 +203,6 @@
           <p id="details-rating"></p>
           <p id="details-description"></p>
           <button id="trakt-admin-add" class="secondary-btn" type="button" hidden>Add this title &amp; manage links</button>
-          <button id="trakt-admin-edit-links" class="secondary-btn" type="button" hidden>Manage Links &amp; Screenshots</button>
 
           <div id="movie-video-container" class="movie-video-container" hidden>
             <h2>Watch Video</h2>
@@ -237,6 +242,19 @@
       </section>
     </div>
   </section>
+
+  <!-- ADMIN-ONLY POSTER EDITOR -->
+  <div id="poster-editor-modal" class="link-editor-modal" hidden role="dialog" aria-modal="true" aria-labelledby="poster-editor-title">
+    <div class="link-editor-card">
+      <button id="poster-editor-close" class="link-editor-close" type="button" aria-label="Close">×</button>
+      <h2 id="poster-editor-title">Edit Poster</h2>
+      <p>Only the poster will be changed. Trakt title, rating and all other details stay the same.</p>
+      <input id="poster-editor-url" type="url" placeholder="New poster image URL">
+      <input id="poster-editor-file" type="file" accept="image/*">
+      <button id="poster-editor-save" class="primary-btn" type="button">Save Poster</button>
+      <p id="poster-editor-message" role="status" aria-live="polite"></p>
+    </div>
+  </div>
 
   <!-- ADMIN-ONLY LINK AND SCREENSHOT EDITOR -->
   <div id="link-editor-modal" class="link-editor-modal" hidden role="dialog" aria-modal="true" aria-labelledby="link-editor-title">
