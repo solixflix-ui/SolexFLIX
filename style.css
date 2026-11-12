@@ -1433,19 +1433,14 @@ body.viewer-open { overflow: hidden; }
 #link-editor-message { min-height: 1.4em; color: #ddd; }
 
 
-/* Keep the two admin edit actions directly below the poster. */
-.details-poster-column {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
-  min-width: 0;
-}
-.details-admin-controls {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  width: 100%;
-}
-.details-admin-controls[hidden] { display: none !important; }
-.details-admin-controls button { width: 100%; }
+
+
+/* One Edit action below the poster; two separate editor sections. */
+.details-poster-column { display:flex; flex-direction:column; align-items:stretch; gap:12px; min-width:0; }
+.details-admin-controls { display:grid; grid-template-columns:1fr; gap:10px; width:100%; }
+.details-admin-controls[hidden] { display:none !important; }
+.details-admin-controls button { width:100%; }
+.link-editor-trakt-details { display:grid; gap:12px; margin:18px 0; }
+.link-editor-trakt-details > div { padding:12px; border:1px solid #383838; border-radius:10px; background:#202020; }
+.link-editor-trakt-details dt { color:#aaa; font-size:.9rem; margin-bottom:5px; }
+.link-editor-trakt-details dd { margin:0; color:#fff; overflow-wrap:anywhere; white-space:pre-wrap; }
