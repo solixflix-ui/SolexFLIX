@@ -1580,23 +1580,63 @@ function prefillTraktItemInAdmin(item) {
   movieForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function normalizeMovieTitle(value) {
+  return String(value || "").normalize("NFKD").toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function findLocalMovieForTrakt(item) {
+  const wantedTitle = normalizeMovieTitle(item?.title);
+  if (!wantedTitle) return null;
+  return movies.find(movie => {
+    const sameTitle = normalizeMovieTitle(movie.title) === wantedTitle;
+    const sameYear = !item.year || !movie.year || String(movie.year) === String(item.year);
+    return sameTitle && sameYear;
+  }) || null;
+}
+
+function ensureEditorMovie() {
+  if (linkEditorMovieId) {
+    const existing = movies.find(movie => movie.id === linkEditorMovieId);
+    if (existing) return Promise.resolve(existing);
+  }
+  if (!isAdmin || !pendingTraktItem) return Promise.reject(new Error("Admin login required."));
+  const item = pendingTraktItem;
+  return addDoc(moviesRef, {
+    title: item.title || "Untitled",
+    description: item.overview || "Description to be added by admin.",
+    year: Number(item.year) || "",
+    category: item.type === "show" ? "Web Series" : "Other",
+    rating: item.rating || "",
+    poster: traktImageUrl(item.poster),
+    videoUrl: "",
+    trailerUrl: "",
+    download480Url: "",
+    download720Url: "",
+    download1080Url: "",
+    screenshots: [],
+    createdAt: serverTimestamp()
+  }).then(async ref => {
+    linkEditorMovieId = ref.id;
+    await loadMovies();
+    return movies.find(movie => movie.id === ref.id) || { id: ref.id };
+  });
+}
+
 function openTraktDetails(item) {
   if (!item || !detailsSection) return;
   pendingTraktItem = item;
   currentMovieId = null;
   if (watchMoreTimer) { clearTimeout(watchMoreTimer); watchMoreTimer = null; }
-  const localMatch = movies.find(movie =>
-    String(movie.title || "").trim().toLowerCase() === String(item.title || "").trim().toLowerCase() &&
-    (!item.year || !movie.year || String(movie.year) === String(item.year))
-  );
+  const localMatch = findLocalMovieForTrakt(item);
   const poster = traktSourceImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
   const proxyPoster = traktImageUrl(item.poster);
   const detailPoster = $("details-poster");
   const adminAddButton = $("trakt-admin-add");
   const adminControls = $("details-admin-controls");
-  if (adminAddButton) adminAddButton.hidden = !!localMatch || !isAdmin;
-  if (adminControls) adminControls.hidden = !localMatch || !isAdmin;
-  if (localMatch) linkEditorMovieId = localMatch.id;
+  if (adminAddButton) adminAddButton.hidden = true;
+  if (adminControls) adminControls.hidden = !isAdmin;
+  linkEditorMovieId = localMatch?.id || null;
   if (detailPoster) {
     detailPoster.onerror = () => {
       if (proxyPoster && detailPoster.src !== proxyPoster) detailPoster.src = proxyPoster;
@@ -1674,8 +1714,8 @@ $("trakt-admin-add")?.addEventListener("click", () => {
 });
 
 function openLinkEditor() {
-  if (!isAdmin || !linkEditorMovieId) return;
-  const match = movies.find(movie => movie.id === linkEditorMovieId);
+  if (!isAdmin) return;
+  const match = movies.find(movie => movie.id === linkEditorMovieId) || pendingTraktItem;
   if (!match) return;
   $("link-editor-title").textContent = "Edit — " + (match.title || "Movie");
   ["link-editor-poster-url", "link-editor-poster-file", "link-editor-video", "link-editor-trailer", "link-editor-480", "link-editor-720", "link-editor-1080", "link-editor-screenshots"].forEach(id => { $(id).value = ""; });
@@ -1704,7 +1744,7 @@ $("link-editor-tab-poster")?.addEventListener("click", () => setLinkEditorTab("p
 $("link-editor-tab-links")?.addEventListener("click", () => setLinkEditorTab("links"));
 
 $("link-editor-save-poster")?.addEventListener("click", async () => {
-  if (!isAdmin || !linkEditorMovieId) return;
+  if (!isAdmin) return;
   const file = $("link-editor-poster-file").files[0];
   const url = $("link-editor-poster-url").value.trim();
   if (!file && !url) {
@@ -1719,6 +1759,8 @@ $("link-editor-save-poster")?.addEventListener("click", async () => {
   button.disabled = true;
   try {
     const poster = file ? await uploadPoster(file) : url;
+    const targetMovie = await ensureEditorMovie();
+    linkEditorMovieId = targetMovie.id;
     await updateDoc(doc(db, "movies", linkEditorMovieId), { poster, updatedAt: serverTimestamp() });
     movies = movies.map(movie => movie.id === linkEditorMovieId ? { ...movie, poster } : movie);
     if ($("details-poster")) $("details-poster").src = poster;
@@ -1732,7 +1774,7 @@ $("link-editor-save-poster")?.addEventListener("click", async () => {
 });
 
 $("link-editor-save-links")?.addEventListener("click", async () => {
-  if (!isAdmin || !linkEditorMovieId) return;
+  if (!isAdmin) return;
   const fields = {
     videoUrl: $("link-editor-video").value.trim(),
     trailerUrl: $("link-editor-trailer").value.trim(),
@@ -1752,6 +1794,8 @@ $("link-editor-save-links")?.addEventListener("click", async () => {
   const button = $("link-editor-save-links");
   button.disabled = true;
   try {
+    const targetMovie = await ensureEditorMovie();
+    linkEditorMovieId = targetMovie.id;
     await updateDoc(doc(db, "movies", linkEditorMovieId), { ...updates, updatedAt: serverTimestamp() });
     movies = movies.map(movie => movie.id === linkEditorMovieId ? { ...movie, ...updates } : movie);
     renderAll();
@@ -1763,7 +1807,7 @@ $("link-editor-save-links")?.addEventListener("click", async () => {
 });
 
 $("link-editor-save-screenshots")?.addEventListener("click", async () => {
-  if (!isAdmin || !linkEditorMovieId) return;
+  if (!isAdmin) return;
   const additions = $("link-editor-screenshots").value.split(/\r?\n/).map(url => url.trim()).filter(Boolean);
   if (!additions.length) {
     $("link-editor-message").textContent = "Pehle screenshot image URL add karo.";
@@ -1773,8 +1817,14 @@ $("link-editor-save-screenshots")?.addEventListener("click", async () => {
     $("link-editor-message").textContent = "Har screenshot ke liye valid http:// ya https:// URL chahiye.";
     return;
   }
-  const movie = movies.find(item => item.id === linkEditorMovieId);
-  if (!movie) return;
+  let movie;
+  try {
+    movie = await ensureEditorMovie();
+    linkEditorMovieId = movie.id;
+  } catch (error) {
+    $("link-editor-message").textContent = error.message || "Movie record create nahi ho paaya.";
+    return;
+  }
   const screenshots = [...new Set([...(Array.isArray(movie.screenshots) ? movie.screenshots : []), ...additions])];
   const button = $("link-editor-save-screenshots");
   button.disabled = true;
