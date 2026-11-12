@@ -592,6 +592,49 @@ function getYouTubeEmbedUrl(url) {
 }
 
 
+function getMovieVideoConfig(value) {
+  const raw = String(value || "").trim();
+  if (!isSafeHttpUrl(raw)) return null;
+  try {
+    const url = new URL(raw);
+    if (/\\.(mp4|webm|ogg|m4v)(?:$|[?#])/i.test(url.pathname + url.search)) {
+      return { type: "file", src: raw };
+    }
+    if (url.hostname === "youtu.be" || /(^|\\.)youtube\\.com$/i.test(url.hostname)) {
+      const embed = getYouTubeEmbedUrl(raw);
+      return embed ? { type: "embed", src: embed } : null;
+    }
+    if (/(^|\\.)vimeo\\.com$/i.test(url.hostname)) {
+      const match = url.pathname.match(/\\/(?:video\\/)?(\\d+)/);
+      return match ? { type: "embed", src: "https://player.vimeo.com/video/" + match[1] } : null;
+    }
+    return null;
+  } catch { return null; }
+}
+
+function renderMovieVideo(value) {
+  const container = $("movie-video-container");
+  const player = $("movie-video-player");
+  const embed = $("movie-video-embed");
+  if (!container || !player || !embed) return;
+  player.pause();
+  player.removeAttribute("src");
+  player.load();
+  embed.src = "";
+  embed.hidden = true;
+  player.hidden = true;
+  const config = getMovieVideoConfig(value);
+  container.hidden = !config;
+  if (!config) return;
+  if (config.type === "file") {
+    player.src = config.src;
+    player.hidden = false;
+  } else {
+    embed.src = config.src;
+    embed.hidden = false;
+  }
+}
+
 function isSafeHttpUrl(value) {
   try {
     const url = new URL(String(value || ""));
@@ -704,6 +747,8 @@ currentMovieId = id;
     $("details-description").textContent =
       movie.description || "";
   }
+
+  renderMovieVideo(movie.videoUrl || movie.video || movie.movieUrl || movie.streamUrl || "");
 
   const trailer = getYouTubeEmbedUrl(movie.trailerUrl || "");
 
@@ -1076,6 +1121,7 @@ if (movieForm) {
     const year = $("movie-year")?.value;
     const category = $("movie-category")?.value;
     const rating = $("movie-rating")?.value;
+    const videoUrl = $("movie-video-url")?.value.trim();
     const trailerUrl = $("movie-trailer-url")?.value.trim();
     const download480Url = $("movie-download-480")?.value.trim();
     const download720Url = $("movie-download-720")?.value.trim();
@@ -1114,7 +1160,7 @@ if (movieForm) {
         poster = await uploadPoster(posterFile);
       }
 
-      const allExternalUrls = [download480Url, download720Url, download1080Url, ...screenshots].filter(Boolean);
+      const allExternalUrls = [videoUrl, trailerUrl, download480Url, download720Url, download1080Url, ...screenshots].filter(Boolean);
       if (allExternalUrls.some((url) => !isSafeHttpUrl(url))) {
         throw new Error("Please enter valid http:// or https:// links only.");
       }
@@ -1254,6 +1300,7 @@ function editMovie(id) {
   $("movie-year").value = movie.year || "";
   $("movie-category").value = movie.category || "";
   $("movie-rating").value = movie.rating || "";
+  $("movie-video-url").value = movie.videoUrl || movie.video || movie.movieUrl || movie.streamUrl || "";
   $("movie-trailer-url").value = movie.trailerUrl || "";
   $("movie-poster-url").value = getPoster(movie);
   $("movie-download-480").value = movie.download480Url || "";
@@ -1438,6 +1485,7 @@ function prefillTraktItemInAdmin(item) {
   $("movie-category").value = item.type === "show" ? "Web Series" : "Other";
   $("movie-rating").value = item.rating || "";
   $("movie-poster-url").value = traktImageUrl(item.poster);
+  $("movie-video-url").value = "";
   $("movie-trailer-url").value = "";
   $("movie-download-480").value = "";
   $("movie-download-720").value = "";
