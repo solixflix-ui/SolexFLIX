@@ -71,6 +71,7 @@ let editingMovieId = null;
 let editingMovieOriginal = null;
 let pendingTraktItem = null;
 let linkOnlyEditMode = false;
+let linkEditorMovieId = null;
 
 function setLinkOnlyEditMode(enabled) {
   linkOnlyEditMode = !!enabled;
@@ -1591,8 +1592,8 @@ function openTraktDetails(item) {
   const detailPoster = $("details-poster");
   const adminAddButton = $("trakt-admin-add");
   const adminEditLinksButton = $("trakt-admin-edit-links");
-  if (adminAddButton) adminAddButton.hidden = !!localMatch;
-  if (adminEditLinksButton) adminEditLinksButton.hidden = !localMatch;
+  if (adminAddButton) adminAddButton.hidden = !!localMatch || !isAdmin;
+  if (adminEditLinksButton) adminEditLinksButton.hidden = !localMatch || !isAdmin;
   if (detailPoster) {
     detailPoster.onerror = () => {
       if (proxyPoster && detailPoster.src !== proxyPoster) detailPoster.src = proxyPoster;
@@ -1669,17 +1670,95 @@ $("trakt-admin-add")?.addEventListener("click", () => {
   }
 });
 
-$("trakt-admin-edit-links")?.addEventListener("click", () => {
-  if (!pendingTraktItem || !isAdmin) return;
-  const item = pendingTraktItem;
+function openLinkEditor() {
+  if (!isAdmin || !pendingTraktItem) return;
   const match = movies.find(movie =>
-    String(movie.title || "").trim().toLowerCase() === String(item.title || "").trim().toLowerCase() &&
-    (!item.year || !movie.year || String(movie.year) === String(item.year))
+    String(movie.title || "").trim().toLowerCase() === String(pendingTraktItem.title || "").trim().toLowerCase() &&
+    (!pendingTraktItem.year || !movie.year || String(movie.year) === String(pendingTraktItem.year))
   );
   if (!match) return;
-  hideSection(detailsSection);
-  showAdminDashboard();
-  editMovie(match.id, { linkOnly: true });
+  linkEditorMovieId = match.id;
+  $("link-editor-title").textContent = "Add links & screenshots — " + (match.title || "Movie");
+  ["link-editor-video", "link-editor-trailer", "link-editor-480", "link-editor-720", "link-editor-1080", "link-editor-screenshots"].forEach(id => { $(id).value = ""; });
+  $("link-editor-message").textContent = "";
+  $("link-editor-modal").hidden = false;
+  setLinkEditorTab("link");
+}
+
+function closeLinkEditor() {
+  $("link-editor-modal").hidden = true;
+  linkEditorMovieId = null;
+}
+
+function setLinkEditorTab(tab) {
+  const screenshots = tab === "screenshots";
+  $("link-editor-link-panel").hidden = screenshots;
+  $("link-editor-screenshot-panel").hidden = !screenshots;
+  $("link-editor-tab-link").classList.toggle("active", !screenshots);
+  $("link-editor-tab-screenshots").classList.toggle("active", screenshots);
+}
+
+$("trakt-admin-edit-links")?.addEventListener("click", openLinkEditor);
+$("link-editor-close")?.addEventListener("click", closeLinkEditor);
+$("link-editor-tab-link")?.addEventListener("click", () => setLinkEditorTab("link"));
+$("link-editor-tab-screenshots")?.addEventListener("click", () => setLinkEditorTab("screenshots"));
+
+$("link-editor-save-links")?.addEventListener("click", async () => {
+  if (!isAdmin || !linkEditorMovieId) return;
+  const fields = {
+    videoUrl: $("link-editor-video").value.trim(),
+    trailerUrl: $("link-editor-trailer").value.trim(),
+    download480Url: $("link-editor-480").value.trim(),
+    download720Url: $("link-editor-720").value.trim(),
+    download1080Url: $("link-editor-1080").value.trim()
+  };
+  const updates = Object.fromEntries(Object.entries(fields).filter(([, value]) => value));
+  if (!Object.keys(updates).length) {
+    $("link-editor-message").textContent = "Pehle kam se kam ek link add karo.";
+    return;
+  }
+  if (Object.values(updates).some(url => !isSafeHttpUrl(url))) {
+    $("link-editor-message").textContent = "Valid http:// ya https:// link add karo.";
+    return;
+  }
+  const button = $("link-editor-save-links");
+  button.disabled = true;
+  try {
+    await updateDoc(doc(db, "movies", linkEditorMovieId), { ...updates, updatedAt: serverTimestamp() });
+    movies = movies.map(movie => movie.id === linkEditorMovieId ? { ...movie, ...updates } : movie);
+    renderAll();
+    $("link-editor-message").textContent = "Links save ho gaye. Baaki movie details same hain.";
+    ["link-editor-video", "link-editor-trailer", "link-editor-480", "link-editor-720", "link-editor-1080"].forEach(id => { $(id).value = ""; });
+  } catch (error) {
+    $("link-editor-message").textContent = error.message || "Links save nahi ho paaye.";
+  } finally { button.disabled = false; }
+});
+
+$("link-editor-save-screenshots")?.addEventListener("click", async () => {
+  if (!isAdmin || !linkEditorMovieId) return;
+  const additions = $("link-editor-screenshots").value.split(/\r?\n/).map(url => url.trim()).filter(Boolean);
+  if (!additions.length) {
+    $("link-editor-message").textContent = "Pehle screenshot image URL add karo.";
+    return;
+  }
+  if (additions.some(url => !isSafeHttpUrl(url))) {
+    $("link-editor-message").textContent = "Har screenshot ke liye valid http:// ya https:// URL chahiye.";
+    return;
+  }
+  const movie = movies.find(item => item.id === linkEditorMovieId);
+  if (!movie) return;
+  const screenshots = [...new Set([...(Array.isArray(movie.screenshots) ? movie.screenshots : []), ...additions])];
+  const button = $("link-editor-save-screenshots");
+  button.disabled = true;
+  try {
+    await updateDoc(doc(db, "movies", linkEditorMovieId), { screenshots, updatedAt: serverTimestamp() });
+    movies = movies.map(item => item.id === linkEditorMovieId ? { ...item, screenshots } : item);
+    renderAll();
+    $("link-editor-message").textContent = "Screenshots add ho gaye. Purane screenshots aur movie details safe hain.";
+    $("link-editor-screenshots").value = "";
+  } catch (error) {
+    $("link-editor-message").textContent = error.message || "Screenshots save nahi ho paaye.";
+  } finally { button.disabled = false; }
 });
 
 if (traktResults) {
