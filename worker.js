@@ -139,7 +139,11 @@ function normalizeTraktItems(items, type) {
   return (Array.isArray(items) ? items : []).map((entry) => {
     const media = entry.movie || entry.show || entry;
     const images = media.images || {};
-    const first = (list) => Array.isArray(list) && list.length ? list[0] : "";
+    const imageValue = (value) => {
+      if (Array.isArray(value)) return value[0] || "";
+      if (value && typeof value === "object") return value.full || value.medium || value.thumb || "";
+      return typeof value === "string" ? value : "";
+    };
     return {
       type: media.title && (entry.show || type === "shows") ? "show" : "movie",
       title: media.title || "",
@@ -147,8 +151,8 @@ function normalizeTraktItems(items, type) {
       slug: media.ids?.slug || "",
       rating: media.rating || 0,
       overview: media.overview || "",
-      poster: first(images.poster),
-      backdrop: first(images.fanart)
+      poster: imageValue(images.poster),
+      backdrop: imageValue(images.fanart)
     };
   }).filter((item) => item.title);
 }
