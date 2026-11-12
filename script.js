@@ -366,13 +366,22 @@ function renderMovieGrid(list = movies) {
 
 function renderCurrentMoviePage() {
   if (!movieGrid) return;
-  const cards = (traktVisibleItems || []).map((item, index) => traktMovieCard(item, index)).join("");
+  const traktCards = (traktVisibleItems || []).map((item, index) => traktMovieCard(item, index)).join("");
+  const knownTitles = new Set((traktVisibleItems || []).map(item =>
+    String(item.title || "").trim().toLowerCase() + "|" + String(item.year || "")
+  ));
+  const localItems = (movies || []).filter(movie => {
+    const key = String(movie.title || "").trim().toLowerCase() + "|" + String(movie.year || "");
+    return !knownTitles.has(key);
+  });
+  const localCards = localItems.map(movieCard).join("");
+  const cards = localCards + traktCards;
   if (cards) {
     movieGrid.innerHTML = cards;
   } else if (traktLoading) {
     movieGrid.innerHTML = '<div class="trakt-status" role="status">Loading movies and web series...</div>';
   } else {
-    movieGrid.innerHTML = '<div class="no-results"><div class="no-results-icon">🎬</div><h3>No titles found</h3><p>Try another title.</p></div>';
+    movieGrid.innerHTML = '<div class="no-results"><div class="no-results-icon">🎬</div><h3>No titles found</h3><p>Try again in a moment.</p></div>';
   }
   renderMoviePagination();
 }
@@ -1711,7 +1720,7 @@ async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed
     traktStatus.textContent = query ? `Search results for “${query}” · Page ${traktCurrentPage}` : `${activeCatalogFeed === "recent" ? "Recent" : "Trending"} ${traktType === "shows" ? "web series" : "movies"} · Page ${traktCurrentPage}`;
   } catch (error) {
     if (requestId !== traktRequestSequence) return;
-    traktVisibleItems = [];
+    // Keep existing Trakt results and Firebase titles visible during API outages.
     renderCurrentMoviePage();
     traktStatus.textContent = error.message || "Unable to load catalogue.";
   } finally {
@@ -1784,3 +1793,4 @@ window.addEventListener("popstate", () => showCatalogPage(location.hash.slice(1)
 
 loadMovies();
 loadTraktDiscovery();
+loadMonetagWatchMoreAd();
