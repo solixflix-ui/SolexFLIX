@@ -370,7 +370,7 @@ function renderCurrentMoviePage() {
   const discoveryCards = (traktVisibleItems || []).map((item, index) => traktMovieCard(item, index)).join("");
 
   if (localCards || discoveryCards) {
-    movieGrid.innerHTML = localCards + discoveryCards;
+    movieGrid.innerHTML = discoveryCards + localCards;
   } else {
     movieGrid.innerHTML = `
       <div class="no-results">
@@ -494,12 +494,24 @@ function setSearchSectionsHidden(hidden) {
 }
 /* SOLEXFLIX SEARCH SYSTEM */
 
+let unifiedSearchTimer = null;
+function runUnifiedSearch(rawQuery) {
+  const query = String(rawQuery || "").trim();
+  activeMovieSearch = query.toLowerCase();
+  applyMovieFilters();
+  setSearchSectionsHidden(query.length > 0);
+  if (unifiedSearchTimer) clearTimeout(unifiedSearchTimer);
+  if (query.length >= 2) {
+    unifiedSearchTimer = setTimeout(() => loadTraktDiscovery(query), 350);
+  } else {
+    traktRequestSequence++;
+    traktVisibleItems = [];
+    renderCurrentMoviePage();
+  }
+}
+
 if (searchInput) {
-  searchInput.addEventListener("input", (event) => {
-    activeMovieSearch = String(event.target.value || "").trim().toLowerCase();
-    applyMovieFilters();
-    setSearchSectionsHidden(activeMovieSearch.length > 0);
-  });
+  searchInput.addEventListener("input", (event) => runUnifiedSearch(event.target.value));
 }
 
 const searchToggle = $("search-toggle");
