@@ -295,6 +295,7 @@
       <h2 id="form-heading">Add New Movie</h2>
 
       <form id="movie-form">
+        <div id="movie-metadata-panel">
         <input id="movie-title" type="text" placeholder="Movie Title" required>
 
         <textarea
@@ -353,6 +354,27 @@
         <input id="movie-poster" type="file" accept="image/*">
 
         <img id="poster-preview" class="poster-preview" src="" alt="Poster Preview" hidden>
+        </div>
+
+        <div id="movie-link-edit-tabs" class="movie-link-edit-tabs" role="tablist" aria-label="Edit movie links or screenshots" hidden>
+          <button type="button" class="active" data-movie-edit-tab="links" role="tab" aria-selected="true">Edit Links</button>
+          <button type="button" data-movie-edit-tab="screenshots" role="tab" aria-selected="false">Add Screenshots</button>
+        </div>
+
+        <div id="movie-links-panel">
+        <input id="movie-video-url" type="url" placeholder="Movie / Episode Video URL (MP4, WebM, YouTube or Vimeo) — optional">
+        <input id="movie-trailer-url" type="url" placeholder="YouTube Trailer URL (optional)">
+        <h3 class="admin-subheading">External Download Page Links</h3>
+        <input id="movie-download-480" type="url" placeholder="480p Download Page URL">
+        <input id="movie-download-720" type="url" placeholder="720p Download Page URL">
+        <input id="movie-download-1080" type="url" placeholder="1080p Download Page URL">
+        </div>
+
+        <div id="movie-screenshots-panel">
+        <label for="movie-screenshots-input" class="upload-label">Screenshot Image URLs (one URL per line)</label>
+        <textarea id="movie-screenshots-input" rows="4" placeholder="https://example.com/screenshot1.jpg&#10;https://example.com/screenshot2.jpg"></textarea>
+        </div>
+        <p class="admin-help">Use image links that you own or are authorized to display. Download links open the external page; the movie file is not uploaded to Firebase.</p>
 
         <button id="save-movie-btn" class="primary-btn" type="submit">
           Add Movie
