@@ -70,6 +70,15 @@ let movies = [];
 let editingMovieId = null;
 let editingMovieOriginal = null;
 let pendingTraktItem = null;
+let linkOnlyEditMode = false;
+
+function setLinkOnlyEditMode(enabled) {
+  linkOnlyEditMode = !!enabled;
+  ["movie-title", "movie-description", "movie-year", "movie-category", "movie-rating", "movie-poster-url", "movie-poster"].forEach(id => {
+    const field = $(id);
+    if (field) field.disabled = linkOnlyEditMode;
+  });
+}
 
 
 /* =========================================
@@ -1175,19 +1184,12 @@ if (movieForm) {
         // download/video link from overwriting Trakt metadata or other fields.
         const original = editingMovieOriginal || existingMovie || {};
         const changedFields = {};
-        const fieldsToCompare = {
-          title,
-          description,
-          year: Number(year),
-          category,
-          rating: rating || "",
-          videoUrl,
-          trailerUrl,
-          download480Url,
-          download720Url,
-          download1080Url,
-          screenshots
-        };
+        const fieldsToCompare = linkOnlyEditMode
+          ? { videoUrl, trailerUrl, download480Url, download720Url, download1080Url, screenshots }
+          : {
+              title, description, year: Number(year), category, rating: rating || "",
+              videoUrl, trailerUrl, download480Url, download720Url, download1080Url, screenshots
+            };
 
         for (const [field, value] of Object.entries(fieldsToCompare)) {
           const previousValue = field === "videoUrl"
@@ -1199,9 +1201,9 @@ if (movieForm) {
           if (!sameValue) changedFields[field] = value;
         }
 
-        const originalPoster = getPoster(original);
-        if (posterFile || poster !== originalPoster) {
-          changedFields.poster = poster;
+        if (!linkOnlyEditMode) {
+          const originalPoster = getPoster(original);
+          if (posterFile || poster !== originalPoster) changedFields.poster = poster;
         }
 
         if (Object.keys(changedFields).length === 0) {
@@ -1230,6 +1232,7 @@ if (movieForm) {
       editingMovieId = null;
       editingMovieOriginal = null;
       pendingTraktItem = null;
+      setLinkOnlyEditMode(false);
 
       if ($("form-heading")) {
         $("form-heading").textContent = "Add New Movie";
@@ -1316,8 +1319,9 @@ function renderAdminMovies() {
    21. EDIT MOVIE
 ========================================= */
 
-function editMovie(id) {
+function editMovie(id, options = {}) {
   if (!isAdmin) return;
+  setLinkOnlyEditMode(!!options.linkOnly);
 
   const movie = movies.find((item) => item.id === id);
 
@@ -1348,11 +1352,11 @@ function editMovie(id) {
   }
 
   if ($("form-heading")) {
-    $("form-heading").textContent = "Edit Movie";
+    $("form-heading").textContent = linkOnlyEditMode ? "Edit Movie Links Only" : "Edit Movie";
   }
 
   if ($("save-movie-btn")) {
-    $("save-movie-btn").textContent = "Update Movie";
+    $("save-movie-btn").textContent = linkOnlyEditMode ? "Save Changed Links" : "Update Movie";
   }
 
   if ($("cancel-edit-btn")) {
@@ -1428,6 +1432,7 @@ if ($("cancel-edit-btn")) {
     editingMovieId = null;
     editingMovieOriginal = null;
     pendingTraktItem = null;
+    setLinkOnlyEditMode(false);
     movieForm.reset();
 
     $("form-heading").textContent = "Add New Movie";
@@ -1576,7 +1581,9 @@ function openTraktDetails(item) {
   const proxyPoster = traktImageUrl(item.poster);
   const detailPoster = $("details-poster");
   const adminAddButton = $("trakt-admin-add");
+  const adminEditLinksButton = $("trakt-admin-edit-links");
   if (adminAddButton) adminAddButton.hidden = !!localMatch;
+  if (adminEditLinksButton) adminEditLinksButton.hidden = !localMatch;
   if (detailPoster) {
     detailPoster.onerror = () => {
       if (proxyPoster && detailPoster.src !== proxyPoster) detailPoster.src = proxyPoster;
@@ -1651,6 +1658,19 @@ $("trakt-admin-add")?.addEventListener("click", () => {
     openAdminLogin();
     pendingTraktItem = item;
   }
+});
+
+$("trakt-admin-edit-links")?.addEventListener("click", () => {
+  if (!pendingTraktItem || !isAdmin) return;
+  const item = pendingTraktItem;
+  const match = movies.find(movie =>
+    String(movie.title || "").trim().toLowerCase() === String(item.title || "").trim().toLowerCase() &&
+    (!item.year || !movie.year || String(movie.year) === String(item.year))
+  );
+  if (!match) return;
+  hideSection(detailsSection);
+  showAdminDashboard();
+  editMovie(match.id, { linkOnly: true });
 });
 
 if (traktResults) {
