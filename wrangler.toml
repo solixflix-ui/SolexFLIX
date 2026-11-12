@@ -6,3 +6,6 @@ compatibility_date = "2026-11-10"
 directory = "./"
 binding = "ASSETS"
 run_worker_first = true
+
+[vars]
+TRAKT_CLIENT_ID = "aX-d-10yFOe_F4UEnxhrF6WyfEUVx1IbAxzhQ4LabrE"
