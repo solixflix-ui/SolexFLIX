@@ -158,7 +158,7 @@ function hideSection(element) {
 }
 
 function getPoster(movie) {
-  return movie.poster || movie.posterUrl || "";
+  return movie.poster || movie.posterUrl || movie.videoPoster || movie.thumbnail || movie.backdrop || "";
 }
 
 function getMovieDate(movie) {
@@ -1520,6 +1520,7 @@ function openTraktDetails(item) {
   $("details-category").textContent = item.type === "show" ? "Web Series" : "Movie";
   $("details-rating").textContent = item.rating ? "★ " + Number(item.rating).toFixed(1) + " / 10" : "";
   $("details-description").textContent = item.overview || "Description is not available for this title yet.";
+  renderMovieVideo(localMatch?.videoUrl || localMatch?.video || localMatch?.movieUrl || localMatch?.streamUrl || "");
   $("movie-trailer").src = "";
   $("trailer-container").hidden = true;
   $("screenshots-section").hidden = true;
