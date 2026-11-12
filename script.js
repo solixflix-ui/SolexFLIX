@@ -409,29 +409,17 @@ function renderCategories() {
 }
 
 function updateFeatured() {
-  const movie = movies[0];
-
-  if (!movie) return;
-
-  if ($("featured-title")) {
-    $("featured-title").textContent = movie.title || "";
-  }
-
-  if ($("featured-description")) {
-    $("featured-description").textContent =
-      movie.description || "";
-  }
-
-  const watchButton = $("featured-watch");
-  const detailsButton = $("featured-details");
-
-  if (watchButton) {
-    watchButton.dataset.movieId = movie.id;
-  }
-
-  if (detailsButton) {
-    detailsButton.dataset.movieId = movie.id;
-  }
+  const item = traktVisibleItems[0];
+  if ($("featured-title")) $("featured-title").textContent = item?.title || "Explore Movies & Web Series";
+  if ($("featured-description")) $("featured-description").textContent = item?.overview || "Discover movies and web series on SolexFLIX.";
+  ["featured-watch", "featured-details"].forEach(id => {
+    const button = $(id);
+    if (button) {
+      if (item) button.dataset.traktIndex = "0";
+      else delete button.dataset.traktIndex;
+      delete button.dataset.movieId;
+    }
+  });
 }
 
 
