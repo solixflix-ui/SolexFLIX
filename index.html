@@ -163,6 +163,26 @@
       <p id="empty-message" hidden>No movies available yet.</p>
     </section>
 
+    <!-- TRAKT DISCOVERY -->
+    <section class="movie-section trakt-discovery" id="discover">
+      <div class="trakt-heading">
+        <div>
+          <h2 class="section-title">Discover Movies &amp; Shows</h2>
+          <p class="trakt-subtitle">Find trending titles and search the Trakt catalogue.</p>
+        </div>
+        <div class="trakt-tabs" role="group" aria-label="Choose title type">
+          <button type="button" class="active" data-trakt-type="movies">Movies</button>
+          <button type="button" data-trakt-type="shows">Web Series</button>
+        </div>
+      </div>
+      <form id="trakt-search-form" class="trakt-search">
+        <input id="trakt-search-input" type="search" placeholder="Search movies or web series..." minlength="2" maxlength="100" aria-label="Search Trakt catalogue">
+        <button class="primary-btn" type="submit">Search</button>
+      </form>
+      <p id="trakt-status" class="trakt-status" aria-live="polite">Loading trending titles...</p>
+      <div id="trakt-results" class="movie-grid"></div>
+    </section>
+
   </main>
 
   <!-- MOVIE DETAILS -->
