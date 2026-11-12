@@ -974,6 +974,7 @@ onAuthStateChanged(auth, async (user) => {
 
   if (isAdmin) {
     showAdminDashboard();
+    if (pendingTraktItem) prefillTraktItemInAdmin(pendingTraktItem);
   } else {
     hideSection(adminPanel);
     hideSection(loginSection);
@@ -1550,7 +1551,6 @@ async function loadTraktDiscovery(query = "") {
   if (!traktResults || !traktStatus) return;
   const requestId = ++traktRequestSequence;
   traktStatus.textContent = query ? "Searching Trakt..." : "Loading trending titles...";
-  traktResults.innerHTML = "";
   try {
     const params = new URLSearchParams({ type: traktType });
     const endpoint = query
