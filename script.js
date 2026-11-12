@@ -1254,6 +1254,7 @@ function editMovie(id) {
   $("movie-category").value = movie.category || "";
   $("movie-rating").value = movie.rating || "";
   $("movie-trailer-url").value = movie.trailerUrl || "";
+  $("movie-poster-url").value = getPoster(movie);
   $("movie-download-480").value = movie.download480Url || "";
   $("movie-download-720").value = movie.download720Url || "";
   $("movie-download-1080").value = movie.download1080Url || "";
@@ -1453,6 +1454,7 @@ function prefillTraktItemInAdmin(item) {
 
 function openTraktDetails(item) {
   if (!item || !detailsSection) return;
+  pendingTraktItem = item;
   currentMovieId = null;
   if (watchMoreTimer) { clearTimeout(watchMoreTimer); watchMoreTimer = null; }
   const localMatch = movies.find(movie =>
@@ -1461,7 +1463,7 @@ function openTraktDetails(item) {
   );
   const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
   const adminAddButton = $("trakt-admin-add");
-  if (adminAddButton) adminAddButton.hidden = !isAdmin || !!localMatch;
+  if (adminAddButton) adminAddButton.hidden = !!localMatch;
   $("details-poster").src = poster;
   $("details-poster").alt = (item.title || "Title") + " poster";
   $("details-title").textContent = item.title || "";
