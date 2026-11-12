@@ -1431,3 +1431,15 @@ body.viewer-open { overflow: hidden; }
   font-size: 30px;
 }
 #link-editor-message { min-height: 1.4em; color: #ddd; }
+
+
+/* Put the two admin-only detail actions directly below the poster. */
+.details-poster-wrap { width: 100%; max-width: 320px; flex: 0 0 320px; }
+.details-poster-wrap #details-poster { display: block; width: 100%; height: auto; }
+.poster-admin-controls { display: grid; gap: 10px; margin-top: 12px; }
+.poster-admin-controls[hidden] { display: none !important; }
+.poster-admin-controls button { width: 100%; white-space: normal; }
+#poster-trakt-locked:disabled { opacity: .78; cursor: default; }
+@media (max-width: 700px) {
+  .details-poster-wrap { max-width: 100%; flex-basis: auto; }
+}
