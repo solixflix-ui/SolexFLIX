@@ -73,6 +73,14 @@ let pendingTraktItem = null;
 let linkOnlyEditMode = false;
 let linkEditorMovieId = null;
 
+function setLinkOnlyEditMode(enabled) {
+  linkOnlyEditMode = !!enabled;
+  ["movie-title", "movie-description", "movie-year", "movie-category", "movie-rating", "movie-poster-url", "movie-poster"].forEach(id => {
+    const field = $(id);
+    if (field) field.disabled = linkOnlyEditMode;
+  });
+}
+
 
 /* =========================================
    4. HTML ELEMENTS
