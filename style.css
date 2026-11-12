@@ -1334,3 +1334,32 @@ body.viewer-open { overflow: hidden; }
 .trakt-attribution { margin-top:18px; }
 .poster-unavailable { background:linear-gradient(135deg,#292929,#111); }
 @media(max-width:600px) { .trakt-search { flex-direction:column; } .trakt-search button { width:100%; } .trakt-heading { align-items:flex-start; } }
+
+
+/* Movie / episode video player */
+.movie-video-container {
+  width: 100%;
+  margin: 28px 0;
+}
+.movie-video-container h2 {
+  margin: 0 0 14px;
+  font-size: 22px;
+}
+#movie-video-player,
+#movie-video-embed {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 70vh;
+  background: #000;
+  border: 1px solid #333;
+  border-radius: 12px;
+}
+#movie-video-player[hidden],
+#movie-video-embed[hidden] {
+  display: none;
+}
+@media (max-width: 650px) {
+  #movie-video-player,
+  #movie-video-embed { aspect-ratio: 16 / 9; max-height: none; }
+}
