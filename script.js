@@ -364,7 +364,18 @@ function renderMoviePagination() {
   const pagination = $("movie-pagination");
   if (!pagination) return;
   pagination.hidden = false;
-  pagination.innerHTML = `<button type="button" data-page="prev" ${traktCurrentPage <= 1 || traktLoading ? "disabled" : ""}>‹ Previous</button><span class="pagination-current">Page ${traktCurrentPage}</span><button type="button" data-page="next" ${!traktHasMore || traktLoading ? "disabled" : ""}>Next ›</button>`;
+  const lastVisiblePage = traktCurrentPage + (traktHasMore ? 1 : 0);
+  const pages = [];
+  if (lastVisiblePage <= 5) {
+    for (let page = 1; page <= lastVisiblePage; page++) pages.push(page);
+  } else {
+    pages.push(1, "dots");
+    for (let page = Math.max(2, traktCurrentPage - 1); page <= lastVisiblePage; page++) pages.push(page);
+  }
+  pagination.innerHTML = pages.map(page => page === "dots"
+    ? '<span class="pagination-dots" aria-hidden="true">…</span>'
+    : `<button type="button" data-page="${page}" class="${page === traktCurrentPage ? "active" : ""}" ${traktLoading ? "disabled" : ""} aria-current="${page === traktCurrentPage ? "page" : "false"}">${page}</button>`
+  ).join("");
 }
 
 function applyMovieFilters() {
@@ -504,8 +515,12 @@ if (moviePagination) {
   moviePagination.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-page]");
     if (!button || button.disabled) return;
-    if (button.dataset.page === "prev" && traktCurrentPage > 1) loadTraktDiscovery(traktCurrentQuery, traktCurrentPage - 1);
-    else if (button.dataset.page === "next" && traktHasMore) loadTraktDiscovery(traktCurrentQuery, traktCurrentPage + 1);
+    const targetPage = Number(button.dataset.page);
+    if (Number.isInteger(targetPage) && targetPage >= 1 && targetPage !== traktCurrentPage) {
+      if (targetPage < traktCurrentPage || (targetPage === traktCurrentPage + 1 && traktHasMore)) {
+        loadTraktDiscovery(traktCurrentQuery, targetPage);
+      }
+    }
     movieGrid?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
