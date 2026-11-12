@@ -197,7 +197,7 @@
           <p id="details-rating"></p>
           <p id="details-description"></p>
           <button id="trakt-admin-add" class="secondary-btn" type="button" hidden>Add this title &amp; manage links</button>
-          <button id="trakt-admin-edit-links" class="secondary-btn" type="button" hidden>Edit Links</button>
+          <button id="trakt-admin-edit-links" class="secondary-btn" type="button" hidden>Manage Links &amp; Screenshots</button>
 
           <div id="movie-video-container" class="movie-video-container" hidden>
             <h2>Watch Video</h2>
@@ -237,6 +237,33 @@
       </section>
     </div>
   </section>
+
+  <!-- ADMIN-ONLY LINK AND SCREENSHOT EDITOR -->
+  <div id="link-editor-modal" class="link-editor-modal" hidden role="dialog" aria-modal="true" aria-labelledby="link-editor-title">
+    <div class="link-editor-card">
+      <button id="link-editor-close" class="link-editor-close" type="button" aria-label="Close">×</button>
+      <h2 id="link-editor-title">Manage Links &amp; Screenshots</h2>
+      <div class="link-editor-tabs">
+        <button id="link-editor-tab-link" class="active" type="button">Add Link</button>
+        <button id="link-editor-tab-screenshots" type="button">Add Screenshot</button>
+      </div>
+      <div id="link-editor-link-panel">
+        <p>Add only the links you need. Empty fields are left unchanged.</p>
+        <input id="link-editor-video" type="url" placeholder="Movie / Episode Video URL">
+        <input id="link-editor-trailer" type="url" placeholder="YouTube Trailer URL">
+        <input id="link-editor-480" type="url" placeholder="480p Download Page URL">
+        <input id="link-editor-720" type="url" placeholder="720p Download Page URL">
+        <input id="link-editor-1080" type="url" placeholder="1080p Download Page URL">
+        <button id="link-editor-save-links" class="primary-btn" type="button">Save Links</button>
+      </div>
+      <div id="link-editor-screenshot-panel" hidden>
+        <p>Add screenshot image URLs, one per line. Existing screenshots will be kept.</p>
+        <textarea id="link-editor-screenshots" rows="5" placeholder="https://example.com/screenshot1.jpg&#10;https://example.com/screenshot2.jpg"></textarea>
+        <button id="link-editor-save-screenshots" class="primary-btn" type="button">Save Screenshots</button>
+      </div>
+      <p id="link-editor-message" role="status" aria-live="polite"></p>
+    </div>
+  </div>
 
   <!-- FULLSCREEN SCREENSHOT VIEWER -->
   <div id="screenshot-viewer" class="screenshot-viewer" hidden role="dialog" aria-modal="true" aria-label="Screenshot viewer">
