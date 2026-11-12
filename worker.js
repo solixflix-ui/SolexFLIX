@@ -192,7 +192,7 @@ export default {
       const raw = url.searchParams.get("url") || "";
       try {
         const imageUrl = new URL(raw);
-        if (imageUrl.protocol !== "https:" || !/(^|\\.)trakt\\.tv$/i.test(imageUrl.hostname)) {
+        if (imageUrl.protocol !== "https:" || !/(^|\.)trakt\.tv$/i.test(imageUrl.hostname)) {
           return new Response("Invalid image host", { status: 400 });
         }
         const cache = caches.default;
