@@ -1363,3 +1363,12 @@ body.viewer-open { overflow: hidden; }
   #movie-video-player,
   #movie-video-embed { aspect-ratio: 16 / 9; max-height: none; }
 }
+
+
+/* Keep Explore catalogue immediately visible on page load */
+#discover { order: -1; }
+#discover .trakt-heading { margin-bottom: 18px; }
+#discover .trakt-search { margin-top: 14px; }
+#discover .movie-card img { display:block; width:100%; height:100%; object-fit:cover; }
+#discover .movie-card .movie-poster { min-height:220px; background:#171717; }
+#discover .movie-card img:not([src]), #discover .movie-card img[src=""] { visibility:hidden; }
