@@ -132,7 +132,10 @@ async function traktJson(path, env) {
     }
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || body.message || "Trakt API error (" + response.status + ")");
+  if (!response.ok) {
+    const details = body.error_description || body.message || body.error || response.statusText || "Unknown response";
+    throw new Error("Trakt API HTTP " + response.status + ": " + String(details).slice(0, 220));
+  }
   return body;
 }
 async function normalizeTraktItems(items, type, env) {
