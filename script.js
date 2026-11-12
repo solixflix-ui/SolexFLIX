@@ -364,18 +364,22 @@ function renderMoviePagination() {
   const pagination = $("movie-pagination");
   if (!pagination) return;
   pagination.hidden = false;
-  const lastVisiblePage = traktCurrentPage + (traktHasMore ? 1 : 0);
+
+  // Trakt does not provide a total page count, so show a useful numbered
+  // window and keep Next available whenever the API confirms another page.
+  const visiblePageCount = traktCurrentPage + (traktHasMore ? 1 : 0);
   const pages = [];
-  if (lastVisiblePage <= 5) {
-    for (let page = 1; page <= lastVisiblePage; page++) pages.push(page);
-  } else {
-    pages.push(1, "dots");
-    for (let page = Math.max(2, traktCurrentPage - 1); page <= lastVisiblePage; page++) pages.push(page);
-  }
-  pagination.innerHTML = pages.map(page => page === "dots"
-    ? '<span class="pagination-dots" aria-hidden="true">…</span>'
-    : `<button type="button" data-page="${page}" class="${page === traktCurrentPage ? "active" : ""}" ${traktLoading ? "disabled" : ""} aria-current="${page === traktCurrentPage ? "page" : "false"}">${page}</button>`
+  for (let page = 1; page <= visiblePageCount; page++) pages.push(page);
+
+  const pageButtons = pages.map(page =>
+    `<button type="button" data-page="${page}" class="${page === traktCurrentPage ? "active" : ""}" ${traktLoading ? "disabled" : ""} aria-current="${page === traktCurrentPage ? "page" : "false"}">${page}</button>`
   ).join("");
+
+  pagination.innerHTML =
+    `<button type="button" data-page="${Math.max(1, traktCurrentPage - 1)}" ${traktCurrentPage <= 1 || traktLoading ? "disabled" : ""} aria-label="Previous page">‹</button>` +
+    pageButtons +
+    (traktHasMore ? '<span class="pagination-dots" aria-hidden="true">…</span>' : "") +
+    `<button type="button" data-page="${traktCurrentPage + 1}" ${!traktHasMore || traktLoading ? "disabled" : ""} aria-label="Next page">Next ›</button>`;
 }
 
 function applyMovieFilters() {
