@@ -168,7 +168,7 @@ async function normalizeTraktItems(items, type, env) {
       slug: media.ids?.slug || "",
       rating: media.rating || 0,
       overview: media.overview || "",
-      poster: imageValue(images.poster),
+      poster: imageValue(images.poster) || imageValue(images.thumb) || imageValue(images.fanart),
       backdrop: imageValue(images.fanart)
     };
   }));
