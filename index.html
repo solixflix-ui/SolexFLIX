@@ -204,12 +204,6 @@
           <p id="details-description"></p>
           <button id="trakt-admin-add" class="secondary-btn" type="button" hidden>Add this title &amp; manage links</button>
 
-          <div id="movie-video-container" class="movie-video-container" hidden>
-            <h2>Watch Video</h2>
-            <video id="movie-video-player" controls playsinline preload="metadata"></video>
-            <iframe id="movie-video-embed" title="Movie Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen hidden></iframe>
-          </div>
-
           <div id="trailer-container" hidden>
             <h2>Official Trailer</h2>
             <iframe
@@ -239,6 +233,12 @@
         <h2>Screenshots</h2>
         <p>Tap any screenshot to view it full screen.</p>
         <div id="movie-screenshots" class="screenshots-grid"></div>
+      </section>
+
+      <section id="movie-video-container" class="movie-video-container" hidden>
+        <h2>Watch Video</h2>
+        <video id="movie-video-player" controls playsinline preload="metadata"></video>
+        <iframe id="movie-video-embed" title="Movie Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen hidden></iframe>
       </section>
     </div>
   </section>
