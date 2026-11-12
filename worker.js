@@ -135,17 +135,31 @@ async function traktJson(path, env) {
   if (!response.ok) throw new Error(body.error || body.message || "Trakt API error (" + response.status + ")");
   return body;
 }
-function normalizeTraktItems(items, type) {
-  return (Array.isArray(items) ? items : []).map((entry) => {
-    const media = entry.movie || entry.show || entry;
-    const images = media.images || {};
-    const imageValue = (value) => {
-      if (Array.isArray(value)) return value[0] || "";
-      if (value && typeof value === "object") return value.full || value.medium || value.thumb || "";
-      return typeof value === "string" ? value : "";
-    };
+async function normalizeTraktItems(items, type, env) {
+  const imageValue = (value) => {
+    if (Array.isArray(value)) return value[0] || "";
+    if (value && typeof value === "object") return value.full || value.medium || value.thumb || "";
+    return typeof value === "string" ? value : "";
+  };
+  return Promise.all((Array.isArray(items) ? items : []).map(async (entry) => {
+    const isShow = !!entry.show || type === "shows";
+    let media = entry.movie || entry.show || entry;
+    let images = media.images || {};
+    // Trending/search list payloads can contain stale embedded media without artwork.
+    // Hydrate only missing-poster items from their Trakt summary endpoint.
+    if (!imageValue(images.poster) && media.ids?.trakt) {
+      try {
+        const fresh = await traktJson("/" + (isShow ? "shows/" : "movies/") + encodeURIComponent(media.ids.trakt) + "?extended=full", env);
+        if (fresh && fresh.title) {
+          media = fresh;
+          images = media.images || {};
+        }
+      } catch (error) {
+        // Keep the available metadata if artwork hydration is temporarily unavailable.
+      }
+    }
     return {
-      type: media.title && (entry.show || type === "shows") ? "show" : "movie",
+      type: isShow ? "show" : "movie",
       title: media.title || "",
       year: media.year || "",
       slug: media.ids?.slug || "",
@@ -154,7 +168,7 @@ function normalizeTraktItems(items, type) {
       poster: imageValue(images.poster),
       backdrop: imageValue(images.fanart)
     };
-  }).filter((item) => item.title);
+  })).filter((item) => item.title);
 }
 function jsonResponse(data, status = 200, cache = 60) {
   return new Response(JSON.stringify(data), { status, headers: {
@@ -187,7 +201,7 @@ export default {
           path = "/" + type + "/trending?limit=12&extended=full";
         }
         const data = await traktJson(path, env);
-        return jsonResponse({ results: normalizeTraktItems(data, type) }, 200, 60);
+        return jsonResponse({ results: await normalizeTraktItems(data, type, env) }, 200, 60);
       } catch (error) {
         return jsonResponse({ error: error.message || "Trakt service unavailable." }, 502, 0);
       }
