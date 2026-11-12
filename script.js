@@ -1690,10 +1690,6 @@ function openTraktDetails(item) {
   ).join("");
   downloadArea.hidden = downloadOptions.length > 0;
   watchMoreArea.hidden = false;
-  if (!downloadOptions.length) {
-    downloadButtons.innerHTML = '<p class="trakt-no-links">No download links have been added for this title yet.</p>';
-  }
-
   if (downloadOptions.length) {
     loadMonetagWatchMoreAd();
     watchMoreTimer = setTimeout(() => {
