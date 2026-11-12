@@ -71,14 +71,39 @@ let editingMovieId = null;
 let editingMovieOriginal = null;
 let pendingTraktItem = null;
 let linkOnlyEditMode = false;
+let activeEditTab = "links";
 
 function setLinkOnlyEditMode(enabled) {
   linkOnlyEditMode = !!enabled;
+  const metadataPanel = $("movie-metadata-panel");
+  const tabs = $("movie-link-edit-tabs");
+  const linksPanel = $("movie-links-panel");
+  const screenshotsPanel = $("movie-screenshots-panel");
+  if (metadataPanel) metadataPanel.hidden = linkOnlyEditMode;
+  if (tabs) tabs.hidden = !linkOnlyEditMode;
+  if (linksPanel) linksPanel.hidden = linkOnlyEditMode && activeEditTab !== "links";
+  if (screenshotsPanel) screenshotsPanel.hidden = linkOnlyEditMode && activeEditTab !== "screenshots";
   ["movie-title", "movie-description", "movie-year", "movie-category", "movie-rating", "movie-poster-url", "movie-poster"].forEach(id => {
     const field = $(id);
     if (field) field.disabled = linkOnlyEditMode;
   });
+  document.querySelectorAll("[data-movie-edit-tab]").forEach(button => {
+    const selected = button.dataset.movieEditTab === activeEditTab;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-selected", String(selected));
+  });
 }
+
+document.querySelectorAll("[data-movie-edit-tab]").forEach(button => {
+  button.addEventListener("click", () => {
+    activeEditTab = button.dataset.movieEditTab === "screenshots" ? "screenshots" : "links";
+    setLinkOnlyEditMode(true);
+    const heading = $("form-heading");
+    if (heading) heading.textContent = activeEditTab === "screenshots" ? "Add Screenshots Only" : "Edit Links Only";
+    const saveButton = $("save-movie-btn");
+    if (saveButton) saveButton.textContent = activeEditTab === "screenshots" ? "Save Screenshots" : "Save Links";
+  });
+});
 
 
 /* =========================================
@@ -1139,8 +1164,12 @@ if (movieForm) {
     const posterFile = posterInput?.files[0];
     const posterUrlInput = String($("movie-poster-url")?.value || "").trim();
 
-    if (!title || !description || !year || !category) {
+    if (!linkOnlyEditMode && (!title || !description || !year || !category)) {
       showMessage(movieMessage, "Please fill all required fields.");
+      return;
+    }
+    if (linkOnlyEditMode && !editingMovieId) {
+      showMessage(movieMessage, "Please select an existing movie before editing links or screenshots.");
       return;
     }
 
@@ -1163,12 +1192,14 @@ if (movieForm) {
 
       let poster = existingMovie ? getPoster(existingMovie) : posterUrlInput;
 
-      if (posterFile) {
+      if (posterFile && !linkOnlyEditMode) {
         showMessage(movieMessage, "Uploading poster...", true);
         poster = await uploadPoster(posterFile);
       }
 
-      const allExternalUrls = [videoUrl, trailerUrl, download480Url, download720Url, download1080Url, ...screenshots].filter(Boolean);
+      const allExternalUrls = (linkOnlyEditMode
+        ? (activeEditTab === "screenshots" ? screenshots : [videoUrl, trailerUrl, download480Url, download720Url, download1080Url])
+        : [videoUrl, trailerUrl, download480Url, download720Url, download1080Url, ...screenshots]).filter(Boolean);
       if (allExternalUrls.some((url) => !isSafeHttpUrl(url))) {
         throw new Error("Please enter valid http:// or https:// links only.");
       }
@@ -1194,7 +1225,9 @@ if (movieForm) {
         const original = editingMovieOriginal || existingMovie || {};
         const changedFields = {};
         const fieldsToCompare = linkOnlyEditMode
-          ? { videoUrl, trailerUrl, download480Url, download720Url, download1080Url, screenshots }
+          ? (activeEditTab === "screenshots"
+              ? { screenshots }
+              : { videoUrl, trailerUrl, download480Url, download720Url, download1080Url })
           : {
               title, description, year: Number(year), category, rating: rating || "",
               videoUrl, trailerUrl, download480Url, download720Url, download1080Url, screenshots
@@ -1241,6 +1274,7 @@ if (movieForm) {
       editingMovieId = null;
       editingMovieOriginal = null;
       pendingTraktItem = null;
+      activeEditTab = "links";
       setLinkOnlyEditMode(false);
 
       if ($("form-heading")) {
@@ -1272,7 +1306,7 @@ loadTraktDiscovery();
       if (saveButton) {
         saveButton.disabled = false;
         saveButton.textContent = editingMovieId
-          ? "Update Movie"
+          ? (linkOnlyEditMode ? (activeEditTab === "screenshots" ? "Save Screenshots" : "Save Links") : "Update Movie")
           : "Add Movie";
       }
     }
@@ -1330,6 +1364,7 @@ function renderAdminMovies() {
 
 function editMovie(id, options = {}) {
   if (!isAdmin) return;
+  activeEditTab = "links";
   setLinkOnlyEditMode(!!options.linkOnly);
 
   const movie = movies.find((item) => item.id === id);
@@ -1365,7 +1400,7 @@ function editMovie(id, options = {}) {
   }
 
   if ($("save-movie-btn")) {
-    $("save-movie-btn").textContent = linkOnlyEditMode ? "Save Changed Links" : "Update Movie";
+    $("save-movie-btn").textContent = linkOnlyEditMode ? "Save Links" : "Update Movie";
   }
 
   if ($("cancel-edit-btn")) {
@@ -1441,6 +1476,7 @@ if ($("cancel-edit-btn")) {
     editingMovieId = null;
     editingMovieOriginal = null;
     pendingTraktItem = null;
+    activeEditTab = "links";
     setLinkOnlyEditMode(false);
     movieForm.reset();
 
