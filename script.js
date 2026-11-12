@@ -819,11 +819,21 @@ function hideMovieDetailsView() {
 }
 
 function closeMovieDetails() {
-  // Use the browser history when this details view created a history entry.
-  if (window.history.state && window.history.state.solexflixDetails) {
-    window.history.back();
-    return;
-  }
+  // Close the details screen immediately; do not rely on asynchronous popstate.
+  // Preserve the current catalogue route while clearing the details-only state.
+  const currentState = { ...(window.history.state || {}) };
+  delete currentState.solexflixDetails;
+  delete currentState.traktDetails;
+  delete currentState.movieId;
+
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete("movie");
+  window.history.replaceState(
+    currentState,
+    "",
+    cleanUrl.pathname + cleanUrl.search + cleanUrl.hash
+  );
+
   hideMovieDetailsView();
 }
 
