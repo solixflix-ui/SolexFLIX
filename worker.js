@@ -120,6 +120,68 @@ async function getMovies(env) {
     };
   });
 }
+
+async function traktJson(path, env) {
+  if (!env.TRAKT_CLIENT_ID) throw new Error("Trakt Client ID is not configured in the Worker.");
+  const response = await fetch("https://api.trakt.tv" + path, {
+    headers: {
+      "trakt-api-version": "2",
+      "trakt-api-key": env.TRAKT_CLIENT_ID,
+      "Content-Type": "application/json",
+      "User-Agent": "SolexFLIX/1.0"
+    }
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const details = body.error_description || body.message || body.error || response.statusText || "Unknown response";
+    throw new Error("Trakt API HTTP " + response.status + ": " + String(details).slice(0, 220));
+  }
+  return body;
+}
+async function normalizeTraktItems(items, type, env) {
+  const imageValue = (value) => {
+    if (Array.isArray(value)) return value[0] || "";
+    if (value && typeof value === "object") return value.full || value.medium || value.thumb || "";
+    return typeof value === "string" ? value : "";
+  };
+  const normalizedItems = await Promise.all((Array.isArray(items) ? items : []).map(async (entry) => {
+    const isShow = !!entry.show || type === "shows";
+    let media = entry.movie || entry.show || entry;
+    let images = media.images || {};
+    // Trending/search list payloads can contain stale embedded media without artwork.
+    // Hydrate only missing-poster items from their Trakt summary endpoint.
+    if (!imageValue(images.poster) && media.ids?.trakt) {
+      try {
+        const fresh = await traktJson("/" + (isShow ? "shows/" : "movies/") + encodeURIComponent(media.ids.trakt) + "?extended=full", env);
+        if (fresh && fresh.title) {
+          media = fresh;
+          images = media.images || {};
+        }
+      } catch (error) {
+        // Keep the available metadata if artwork hydration is temporarily unavailable.
+      }
+    }
+    return {
+      type: isShow ? "show" : "movie",
+      title: media.title || "",
+      year: media.year || "",
+      slug: media.ids?.slug || "",
+      rating: media.rating || 0,
+      overview: media.overview || "",
+      poster: imageValue(images.poster) || imageValue(images.thumb) || imageValue(images.fanart),
+      backdrop: imageValue(images.fanart)
+    };
+  }));
+  return normalizedItems.filter((item) => item && item.title);
+}
+function jsonResponse(data, status = 200, cache = 60) {
+  return new Response(JSON.stringify(data), { status, headers: {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "public, max-age=" + cache,
+    "X-Content-Type-Options": "nosniff"
+  }});
+}
+
 function xmlResponse(body, status = 200) {
   return new Response(body, { status, headers: {
     "Content-Type": "application/xml; charset=utf-8",
@@ -130,6 +192,48 @@ function xmlResponse(body, status = 200) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/api/trakt/discover" || url.pathname === "/api/trakt/search") {
+      try {
+        const type = url.searchParams.get("type") === "shows" ? "shows" : "movies";
+        const query = String(url.searchParams.get("q") || "").trim().slice(0, 100);
+        let path;
+        if (url.pathname.endsWith("/search")) {
+          if (query.length < 2) return jsonResponse({ error: "Enter at least 2 characters." }, 400, 0);
+          path = "/search/" + (type === "shows" ? "show" : "movie") + "?" + new URLSearchParams({ query, limit: "20", extended: "full" });
+        } else {
+          path = "/" + type + "/trending?limit=12&extended=full";
+        }
+        const data = await traktJson(path, env);
+        return jsonResponse({ results: await normalizeTraktItems(data, type, env) }, 200, 60);
+      } catch (error) {
+        return jsonResponse({ error: error.message || "Trakt service unavailable." }, 502, 0);
+      }
+    }
+    if (url.pathname === "/api/trakt/image") {
+      const raw = url.searchParams.get("url") || "";
+      try {
+        const imageUrl = new URL(raw);
+        if (imageUrl.protocol !== "https:" || !/(^|\.)trakt\.tv$/i.test(imageUrl.hostname)) {
+          return new Response("Invalid image host", { status: 400 });
+        }
+        const cache = caches.default;
+        const cacheKey = new Request(imageUrl.toString(), { method: "GET" });
+        let imageResponse = await cache.match(cacheKey);
+        if (!imageResponse) {
+          const upstream = await fetch(imageUrl.toString(), { headers: { Accept: "image/webp,image/*" } });
+          if (!upstream.ok) return new Response("Image unavailable", { status: upstream.status });
+          const headers = new Headers(upstream.headers);
+          headers.set("Cache-Control", "public, max-age=604800");
+          headers.set("X-Content-Type-Options", "nosniff");
+          imageResponse = new Response(upstream.body, { status: 200, headers });
+          await cache.put(cacheKey, imageResponse.clone());
+        }
+        return imageResponse;
+      } catch {
+        return new Response("Invalid image URL", { status: 400 });
+      }
+    }
     if (url.pathname === "/sitemap.xml") {
       try {
         const movies = await getMovies(env);

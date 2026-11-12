@@ -68,6 +68,7 @@ let currentUser = null;
 let isAdmin = false;
 let movies = [];
 let editingMovieId = null;
+let pendingTraktItem = null;
 
 
 /* =========================================
@@ -157,7 +158,7 @@ function hideSection(element) {
 }
 
 function getPoster(movie) {
-  return movie.poster || movie.posterUrl || "";
+  return movie.poster || movie.posterUrl || movie.videoPoster || movie.thumbnail || movie.backdrop || "";
 }
 
 function getMovieDate(movie) {
@@ -365,9 +366,11 @@ function renderCurrentMoviePage() {
   currentMoviePage = Math.min(Math.max(1, currentMoviePage), totalPages);
   const start = (currentMoviePage - 1) * MOVIES_PER_PAGE;
   const pageMovies = currentMovieList.slice(start, start + MOVIES_PER_PAGE);
+  const localCards = pageMovies.map(movieCard).join("");
+  const discoveryCards = (traktVisibleItems || []).map((item, index) => traktMovieCard(item, index)).join("");
 
-  if (pageMovies.length) {
-    movieGrid.innerHTML = pageMovies.map(movieCard).join("");
+  if (localCards || discoveryCards) {
+    movieGrid.innerHTML = localCards + discoveryCards;
   } else {
     movieGrid.innerHTML = `
       <div class="no-results">
@@ -589,6 +592,49 @@ function getYouTubeEmbedUrl(url) {
 }
 
 
+function getMovieVideoConfig(value) {
+  const raw = String(value || "").trim();
+  if (!isSafeHttpUrl(raw)) return null;
+  try {
+    const url = new URL(raw);
+    if (/\.(mp4|webm|ogg|m4v)(?:$|[?#])/i.test(url.pathname + url.search)) {
+      return { type: "file", src: raw };
+    }
+    if (url.hostname === "youtu.be" || /(^|\.)youtube\.com$/i.test(url.hostname)) {
+      const embed = getYouTubeEmbedUrl(raw);
+      return embed ? { type: "embed", src: embed } : null;
+    }
+    if (/(^|\.)vimeo\.com$/i.test(url.hostname)) {
+      const match = url.pathname.match(/\/(?:video\/)?(\d+)/);
+      return match ? { type: "embed", src: "https://player.vimeo.com/video/" + match[1] } : null;
+    }
+    return null;
+  } catch { return null; }
+}
+
+function renderMovieVideo(value) {
+  const container = $("movie-video-container");
+  const player = $("movie-video-player");
+  const embed = $("movie-video-embed");
+  if (!container || !player || !embed) return;
+  player.pause();
+  player.removeAttribute("src");
+  player.load();
+  embed.src = "";
+  embed.hidden = true;
+  player.hidden = true;
+  const config = getMovieVideoConfig(value);
+  container.hidden = !config;
+  if (!config) return;
+  if (config.type === "file") {
+    player.src = config.src;
+    player.hidden = false;
+  } else {
+    embed.src = config.src;
+    embed.hidden = false;
+  }
+}
+
 function isSafeHttpUrl(value) {
   try {
     const url = new URL(String(value || ""));
@@ -701,6 +747,8 @@ currentMovieId = id;
     $("details-description").textContent =
       movie.description || "";
   }
+
+  renderMovieVideo(movie.videoUrl || movie.video || movie.movieUrl || movie.streamUrl || "");
 
   const trailer = getYouTubeEmbedUrl(movie.trailerUrl || "");
 
@@ -888,6 +936,7 @@ function openAdminLogin() {
 
   if (isAdmin) {
     showAdminDashboard();
+    if (pendingTraktItem) prefillTraktItemInAdmin(pendingTraktItem);
   } else {
     showSection(loginSection);
     hideSection(adminPanel);
@@ -970,6 +1019,7 @@ onAuthStateChanged(auth, async (user) => {
 
   if (isAdmin) {
     showAdminDashboard();
+    if (pendingTraktItem) prefillTraktItemInAdmin(pendingTraktItem);
   } else {
     hideSection(adminPanel);
     hideSection(loginSection);
@@ -1071,6 +1121,7 @@ if (movieForm) {
     const year = $("movie-year")?.value;
     const category = $("movie-category")?.value;
     const rating = $("movie-rating")?.value;
+    const videoUrl = $("movie-video-url")?.value.trim();
     const trailerUrl = $("movie-trailer-url")?.value.trim();
     const download480Url = $("movie-download-480")?.value.trim();
     const download720Url = $("movie-download-720")?.value.trim();
@@ -1078,6 +1129,7 @@ if (movieForm) {
     const screenshots = String($("movie-screenshots-input")?.value || "")
       .split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
     const posterFile = posterInput?.files[0];
+    const posterUrlInput = String($("movie-poster-url")?.value || "").trim();
 
     if (!title || !description || !year || !category) {
       showMessage(movieMessage, "Please fill all required fields.");
@@ -1088,8 +1140,8 @@ if (movieForm) {
       ? movies.find((movie) => movie.id === editingMovieId)
       : null;
 
-    if (!posterFile && !existingMovie) {
-      showMessage(movieMessage, "Please select a movie poster.");
+    if (!posterFile && !existingMovie && !isSafeHttpUrl(posterUrlInput)) {
+      showMessage(movieMessage, "Please upload a poster or enter a valid poster URL.");
       return;
     }
 
@@ -1101,14 +1153,14 @@ if (movieForm) {
         saveButton.textContent = "Please wait...";
       }
 
-      let poster = existingMovie ? getPoster(existingMovie) : "";
+      let poster = existingMovie ? getPoster(existingMovie) : posterUrlInput;
 
       if (posterFile) {
         showMessage(movieMessage, "Uploading poster...", true);
         poster = await uploadPoster(posterFile);
       }
 
-      const allExternalUrls = [download480Url, download720Url, download1080Url, ...screenshots].filter(Boolean);
+      const allExternalUrls = [videoUrl, trailerUrl, download480Url, download720Url, download1080Url, ...screenshots].filter(Boolean);
       if (allExternalUrls.some((url) => !isSafeHttpUrl(url))) {
         throw new Error("Please enter valid http:// or https:// links only.");
       }
@@ -1147,6 +1199,7 @@ if (movieForm) {
       movieForm.reset();
 
       editingMovieId = null;
+      pendingTraktItem = null;
 
       if ($("form-heading")) {
         $("form-heading").textContent = "Add New Movie";
@@ -1166,6 +1219,7 @@ if (movieForm) {
       }
 
       await loadMovies();
+loadTraktDiscovery();
 
     } catch (error) {
       console.error("Save movie error:", error);
@@ -1246,7 +1300,9 @@ function editMovie(id) {
   $("movie-year").value = movie.year || "";
   $("movie-category").value = movie.category || "";
   $("movie-rating").value = movie.rating || "";
+  $("movie-video-url").value = movie.videoUrl || movie.video || movie.movieUrl || movie.streamUrl || "";
   $("movie-trailer-url").value = movie.trailerUrl || "";
+  $("movie-poster-url").value = getPoster(movie);
   $("movie-download-480").value = movie.download480Url || "";
   $("movie-download-720").value = movie.download720Url || "";
   $("movie-download-1080").value = movie.download1080Url || "";
@@ -1336,6 +1392,7 @@ if (adminMovieList) {
 if ($("cancel-edit-btn")) {
   $("cancel-edit-btn").addEventListener("click", () => {
     editingMovieId = null;
+    pendingTraktItem = null;
     movieForm.reset();
 
     $("form-heading").textContent = "Add New Movie";
@@ -1368,8 +1425,225 @@ if ($("logout-btn")) {
 }
 
 
+
+/* =========================================
+   TRAKT ON-DEMAND DISCOVERY
+   Results are fetched for visitor searches and
+   trending views; no bulk catalogue mirroring.
+========================================= */
+const traktResults = $("movie-grid");
+const traktStatus = $("trakt-status");
+const traktSearchForm = $("trakt-search-form");
+const traktSearchInput = $("trakt-search-input");
+let traktType = "movies";
+let traktRequestSequence = 0;
+
+function traktImageUrl(rawUrl) {
+  if (!rawUrl) return "";
+  const source = String(rawUrl).startsWith("http") ? rawUrl : "https://" + rawUrl;
+  return "/api/trakt/image?url=" + encodeURIComponent(source);
+}
+
+let traktVisibleItems = [];
+
+function traktMovieCard(item, index) {
+  const title = item.title || "Untitled";
+  const localMatch = movies.find(movie =>
+    String(movie.title || "").trim().toLowerCase() === String(title).trim().toLowerCase() &&
+    (!item.year || !movie.year || String(movie.year) === String(item.year))
+  );
+  const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
+  const year = item.year || "";
+  const rating = Number(item.rating || 0);
+  const kind = item.type === "show" ? "Web Series" : "Movie";
+  return `
+    <article class="movie-card trakt-card" data-trakt-index="${index}" role="button" tabindex="0" aria-label="View details for ${escapeHTML(title)}">
+      <div class="movie-poster">
+        ${poster ? `<img src="${escapeHTML(poster)}" alt="${escapeHTML(title)}" loading="lazy" onerror="this.closest('.movie-poster').classList.add('poster-unavailable');this.remove()">` : '<div class="poster-unavailable"></div>'}
+        <span class="trakt-kind">${kind}</span>
+        ${rating ? `<span class="movie-rating">★ ${rating.toFixed(1)}</span>` : ""}
+      </div>
+      <div class="movie-info">
+        <h3>${escapeHTML(title)}</h3>
+        <p>${escapeHTML(year)} · View Details</p>
+      </div>
+    </article>`;
+}
+
+function renderTraktResults(items) {
+  traktVisibleItems = Array.isArray(items) ? items : [];
+  renderCurrentMoviePage();
+}
+function prefillTraktItemInAdmin(item) {
+  if (!item || !isAdmin) return;
+  pendingTraktItem = item;
+  editingMovieId = null;
+  movieForm.reset();
+  $("movie-title").value = item.title || "";
+  $("movie-description").value = item.overview || "Description to be added by admin.";
+  $("movie-year").value = item.year || "";
+  $("movie-category").value = item.type === "show" ? "Web Series" : "Other";
+  $("movie-rating").value = item.rating || "";
+  $("movie-poster-url").value = traktImageUrl(item.poster);
+  $("movie-video-url").value = "";
+  $("movie-trailer-url").value = "";
+  $("movie-download-480").value = "";
+  $("movie-download-720").value = "";
+  $("movie-download-1080").value = "";
+  $("movie-screenshots-input").value = "";
+  if (posterPreview) {
+    posterPreview.src = traktImageUrl(item.poster);
+    posterPreview.hidden = !item.poster;
+  }
+  $("form-heading").textContent = "Add Title & Links";
+  $("save-movie-btn").textContent = "Save Title & Links";
+  $("cancel-edit-btn").hidden = false;
+  movieForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function openTraktDetails(item) {
+  if (!item || !detailsSection) return;
+  pendingTraktItem = item;
+  currentMovieId = null;
+  if (watchMoreTimer) { clearTimeout(watchMoreTimer); watchMoreTimer = null; }
+  const localMatch = movies.find(movie =>
+    String(movie.title || "").trim().toLowerCase() === String(item.title || "").trim().toLowerCase() &&
+    (!item.year || !movie.year || String(movie.year) === String(item.year))
+  );
+  const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
+  const adminAddButton = $("trakt-admin-add");
+  if (adminAddButton) adminAddButton.hidden = !!localMatch;
+  $("details-poster").src = poster;
+  $("details-poster").alt = (item.title || "Title") + " poster";
+  $("details-title").textContent = item.title || "";
+  $("details-year").textContent = item.year || "";
+  $("details-category").textContent = item.type === "show" ? "Web Series" : "Movie";
+  $("details-rating").textContent = item.rating ? "★ " + Number(item.rating).toFixed(1) + " / 10" : "";
+  $("details-description").textContent = item.overview || "Description is not available for this title yet.";
+  renderMovieVideo(localMatch?.videoUrl || localMatch?.video || localMatch?.movieUrl || localMatch?.streamUrl || "");
+  $("movie-trailer").src = "";
+  $("trailer-container").hidden = true;
+  $("screenshots-section").hidden = true;
+
+  const watchMoreArea = $("watch-more-area");
+  const downloadArea = $("download-area");
+  const downloadButtons = $("download-buttons");
+  const downloadOptions = localMatch ? [
+    ["480p", localMatch.download480Url],
+    ["720p", localMatch.download720Url],
+    ["1080p", localMatch.download1080Url]
+  ].filter(([, url]) => isSafeHttpUrl(url)) : [];
+
+  downloadButtons.innerHTML = downloadOptions.map(([quality, url]) =>
+    `<a class="primary-btn download-quality-btn" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${quality} Download</a>`
+  ).join("");
+  downloadArea.hidden = downloadOptions.length > 0;
+  watchMoreArea.hidden = false;
+  if (!downloadOptions.length) {
+    downloadButtons.innerHTML = '<p class="trakt-no-links">No download links have been added for this title yet.</p>';
+  }
+
+  if (downloadOptions.length) {
+    loadMonetagWatchMoreAd();
+    watchMoreTimer = setTimeout(() => {
+      watchMoreTimer = null;
+      if (currentMovieId !== null || !detailsSection || detailsSection.hidden) return;
+      downloadArea.hidden = false;
+    }, 20000);
+  }
+
+  activeScreenshots = [];
+  hideSection(websiteSection);
+  hideSection(adminPanel);
+  hideSection(loginSection);
+  showSection(detailsSection);
+  loadMovieDetailsAd();
+
+  const currentState = window.history.state || {};
+  window.history.pushState(
+    { ...currentState, solexflixDetails: true, traktDetails: true },
+    "",
+    window.location.pathname + window.location.hash
+  );
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+$("trakt-admin-add")?.addEventListener("click", () => {
+  if (!pendingTraktItem) return;
+  const item = pendingTraktItem;
+  hideSection(detailsSection);
+  if (isAdmin) {
+    showAdminDashboard();
+    prefillTraktItemInAdmin(item);
+  } else {
+    openAdminLogin();
+    pendingTraktItem = item;
+  }
+});
+
+if (traktResults) {
+  traktResults.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-trakt-index]");
+    if (!card) return;
+    openTraktDetails(traktVisibleItems[Number(card.dataset.traktIndex)]);
+  });
+  traktResults.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const card = event.target.closest("[data-trakt-index]");
+    if (!card) return;
+    event.preventDefault();
+    openTraktDetails(traktVisibleItems[Number(card.dataset.traktIndex)]);
+  });
+}
+
+async function loadTraktDiscovery(query = "") {
+  if (!traktResults || !traktStatus) return;
+  const requestId = ++traktRequestSequence;
+  traktStatus.textContent = query ? "Searching Trakt..." : "Loading trending titles...";
+  try {
+    const params = new URLSearchParams({ type: traktType });
+    const endpoint = query
+      ? (params.set("q", query), "/api/trakt/search?" + params.toString())
+      : "/api/trakt/discover?" + params.toString();
+    const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+    const data = await response.json();
+    if (requestId !== traktRequestSequence) return;
+    if (!response.ok) throw new Error(data.error || "Trakt request failed.");
+    renderTraktResults(data.results || []);
+    traktStatus.textContent = query
+      ? `Search results for “${query}”`
+      : `Trending ${traktType === "shows" ? "web series" : "movies"}`;
+  } catch (error) {
+    if (requestId !== traktRequestSequence) return;
+    traktStatus.textContent = error.message || "Unable to load Trakt titles.";
+  }
+}
+
+document.querySelectorAll("[data-trakt-type]").forEach((button) => {
+  button.addEventListener("click", () => {
+    traktType = button.dataset.traktType === "shows" ? "shows" : "movies";
+    document.querySelectorAll("[data-trakt-type]").forEach((item) => item.classList.toggle("active", item === button));
+    if (traktSearchInput) traktSearchInput.value = "";
+    loadTraktDiscovery();
+  });
+});
+
+if (traktSearchForm) {
+  traktSearchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const query = String(traktSearchInput?.value || "").trim();
+    if (query.length < 2) {
+      traktStatus.textContent = "Please enter at least 2 characters.";
+      return;
+    }
+    loadTraktDiscovery(query);
+  });
+}
+
+
 /* =========================================
    26. START WEBSITE
 ========================================= */
 
 loadMovies();
+loadTraktDiscovery();
