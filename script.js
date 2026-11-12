@@ -1399,7 +1399,11 @@ function renderTraktResults(items) {
   }
   traktResults.innerHTML = traktVisibleItems.map((item, index) => {
     const title = item.title || "Untitled";
-    const poster = traktImageUrl(item.poster);
+    const localMatch = movies.find(movie =>
+      String(movie.title || "").trim().toLowerCase() === String(title).trim().toLowerCase() &&
+      (!item.year || !movie.year || String(movie.year) === String(item.year))
+    );
+    const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
     const year = item.year || "";
     const rating = Number(item.rating || 0);
     const kind = item.type === "show" ? "Web Series" : "Movie";
