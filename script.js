@@ -256,6 +256,9 @@ function renderAll() {
   renderRecent();
   renderContinueWatching();
   renderWatchHistory();
+  if (continueWatchingSection) continueWatchingSection.hidden = true;
+  if (watchHistorySection) watchHistorySection.hidden = true;
+  if (categoryList?.closest(".movie-section")) categoryList.closest(".movie-section").hidden = true;
   activeMovieCategory = "all";
   activeMovieSearch = "";
   if (searchInput) searchInput.value = "";
@@ -271,23 +274,15 @@ function renderAll() {
 function renderTrending() {
   if (!trendingList) return;
 
-  const trending = [...movies].slice(0, 8);
-
-  trendingList.innerHTML = trending.length
-    ? trending.map(movieCard).join("")
-    : "<p>No trending movies yet.</p>";
+  const trending = traktVisibleItems.slice(0, 8);
+  trendingList.innerHTML = trending.length ? trending.map((item, index) => traktMovieCard(item, index)).join("") : '<p class="trakt-status">Loading movies...</p>';
 }
 
 function renderRecent() {
   if (!recentList) return;
 
-  const recent = [...movies]
-    .sort((a, b) => getMovieDate(b) - getMovieDate(a))
-    .slice(0, 8);
-
-  recentList.innerHTML = recent.length
-    ? recent.map(movieCard).join("")
-    : "<p>No recent movies yet.</p>";
+  const recent = traktVisibleItems.slice(0, 8);
+  recentList.innerHTML = recent.length ? recent.map((item, index) => traktMovieCard(item, index)).join("") : '<p class="trakt-status">Loading movies...</p>';
 }
 /* CONTINUE WATCHING SYSTEM */
 
@@ -361,51 +356,15 @@ function renderMovieGrid(list = movies) {
 
 function renderCurrentMoviePage() {
   if (!movieGrid) return;
-
-  const totalPages = Math.max(1, Math.ceil(currentMovieList.length / MOVIES_PER_PAGE));
-  currentMoviePage = Math.min(Math.max(1, currentMoviePage), totalPages);
-  const start = (currentMoviePage - 1) * MOVIES_PER_PAGE;
-  const pageMovies = currentMovieList.slice(start, start + MOVIES_PER_PAGE);
-  const localCards = pageMovies.map(movieCard).join("");
-  const discoveryCards = (traktVisibleItems || []).map((item, index) => traktMovieCard(item, index)).join("");
-
-  if (localCards || discoveryCards) {
-    movieGrid.innerHTML = discoveryCards + localCards;
-  } else {
-    movieGrid.innerHTML = `
-      <div class="no-results">
-        <div class="no-results-icon">🎬</div>
-        <h3>No Movies Found</h3>
-        <p>Sorry! We couldn't find what you're looking for.</p>
-        <span>Try another movie title or category.</span>
-      </div>
-    `;
-  }
-
-  renderMoviePagination(totalPages);
+  const cards = (traktVisibleItems || []).map((item, index) => traktMovieCard(item, index)).join("");
+  movieGrid.innerHTML = cards || '<div class="no-results"><div class="no-results-icon">🎬</div><h3>No titles found</h3><p>Try another title.</p></div>';
+  renderMoviePagination();
 }
-
-function renderMoviePagination(totalPages) {
+function renderMoviePagination() {
   const pagination = $("movie-pagination");
   if (!pagination) return;
-  // Keep the pagination area visible even when only one page exists.
-  // Additional page numbers appear automatically as the catalogue grows.
   pagination.hidden = false;
-  let pages = [];
-  if (totalPages <= 7) {
-    pages = Array.from({ length: totalPages }, (_, i) => i + 1);
-  } else {
-    pages = [1, 2, 3, "...", totalPages];
-  }
-
-  pagination.innerHTML = `
-    <button type="button" data-page="${currentMoviePage - 1}" ${currentMoviePage === 1 ? "disabled" : ""}>‹ Prev</button>
-    ${pages.map(page => page === "..."
-      ? `<span class="pagination-dots">…</span>`
-      : `<button type="button" data-page="${page}" class="${page === currentMoviePage ? "active" : ""}" aria-current="${page === currentMoviePage ? "page" : "false"}">${page}</button>`
-    ).join("")}
-    <button type="button" data-page="${currentMoviePage + 1}" ${currentMoviePage === totalPages ? "disabled" : ""}>Next ›</button>
-  `;
+  pagination.innerHTML = `<button type="button" data-page="prev" ${traktCurrentPage <= 1 || traktLoading ? "disabled" : ""}>‹ Previous</button><span class="pagination-current">Page ${traktCurrentPage}</span><button type="button" data-page="next" ${!traktHasMore || traktLoading ? "disabled" : ""}>Next ›</button>`;
 }
 
 function applyMovieFilters() {
@@ -450,29 +409,17 @@ function renderCategories() {
 }
 
 function updateFeatured() {
-  const movie = movies[0];
-
-  if (!movie) return;
-
-  if ($("featured-title")) {
-    $("featured-title").textContent = movie.title || "";
-  }
-
-  if ($("featured-description")) {
-    $("featured-description").textContent =
-      movie.description || "";
-  }
-
-  const watchButton = $("featured-watch");
-  const detailsButton = $("featured-details");
-
-  if (watchButton) {
-    watchButton.dataset.movieId = movie.id;
-  }
-
-  if (detailsButton) {
-    detailsButton.dataset.movieId = movie.id;
-  }
+  const item = traktVisibleItems[0];
+  if ($("featured-title")) $("featured-title").textContent = item?.title || "Explore Movies & Web Series";
+  if ($("featured-description")) $("featured-description").textContent = item?.overview || "Discover movies and web series on SolexFLIX.";
+  ["featured-watch", "featured-details"].forEach(id => {
+    const button = $(id);
+    if (button) {
+      if (item) button.dataset.traktIndex = "0";
+      else delete button.dataset.traktIndex;
+      delete button.dataset.movieId;
+    }
+  });
 }
 
 
@@ -557,13 +504,8 @@ if (moviePagination) {
   moviePagination.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-page]");
     if (!button || button.disabled) return;
-    const requestedPage = Number(button.dataset.page);
-    if (!Number.isInteger(requestedPage)) return;
-
-    const totalPages = Math.max(1, Math.ceil(currentMovieList.length / MOVIES_PER_PAGE));
-    if (requestedPage < 1 || requestedPage > totalPages) return;
-    currentMoviePage = requestedPage;
-    renderCurrentMoviePage();
+    if (button.dataset.page === "prev" && traktCurrentPage > 1) loadTraktDiscovery(traktCurrentQuery, traktCurrentPage - 1);
+    else if (button.dataset.page === "next" && traktHasMore) loadTraktDiscovery(traktCurrentQuery, traktCurrentPage + 1);
     movieGrid?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
@@ -1449,6 +1391,7 @@ const traktSearchForm = $("trakt-search-form");
 const traktSearchInput = $("trakt-search-input");
 let traktType = "movies";
 let traktRequestSequence = 0;
+let traktCurrentPage = 1, traktHasMore = false, traktCurrentQuery = "", traktLoading = false;
 
 function traktSourceImageUrl(rawUrl) {
   if (!rawUrl) return "";
@@ -1490,9 +1433,25 @@ function traktMovieCard(item, index) {
     </article>`;
 }
 
-function renderTraktResults(items) {
+function renderTraktResults(items, hasMore = false) {
   traktVisibleItems = Array.isArray(items) ? items : [];
+  traktHasMore = !!hasMore;
   renderCurrentMoviePage();
+  renderTraktHomeSections();
+}
+function renderTraktHomeSections() {
+  const cards = traktVisibleItems.map((item, index) => traktMovieCard(item, index)).join("");
+  if (trendingList) trendingList.innerHTML = cards || '<p class="trakt-status">Loading movies...</p>';
+  if (recentList) recentList.innerHTML = cards || '<p class="trakt-status">Loading movies...</p>';
+  const first = traktVisibleItems[0];
+  if (first) {
+    if ($("featured-title")) $("featured-title").textContent = first.title || "Explore movies";
+    if ($("featured-description")) $("featured-description").textContent = first.overview || "Discover movies and web series on SolexFLIX.";
+    ["featured-watch", "featured-details"].forEach(id => {
+      const button = $(id);
+      if (button) { button.dataset.traktIndex = "0"; delete button.dataset.movieId; }
+    });
+  }
 }
 function prefillTraktItemInAdmin(item) {
   if (!item || !isAdmin) return;
@@ -1530,11 +1489,21 @@ function openTraktDetails(item) {
     String(movie.title || "").trim().toLowerCase() === String(item.title || "").trim().toLowerCase() &&
     (!item.year || !movie.year || String(movie.year) === String(item.year))
   );
-  const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
+  const poster = traktSourceImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
+  const proxyPoster = traktImageUrl(item.poster);
+  const detailPoster = $("details-poster");
   const adminAddButton = $("trakt-admin-add");
   if (adminAddButton) adminAddButton.hidden = !!localMatch;
-  $("details-poster").src = poster;
-  $("details-poster").alt = (item.title || "Title") + " poster";
+  if (detailPoster) {
+    detailPoster.onerror = () => {
+      if (proxyPoster && detailPoster.src !== proxyPoster) detailPoster.src = proxyPoster;
+      else { detailPoster.removeAttribute("src"); detailPoster.alt = "Poster unavailable"; detailPoster.classList.add("poster-unavailable"); }
+    };
+    detailPoster.classList.remove("poster-unavailable");
+    if (poster) detailPoster.src = poster;
+    else { detailPoster.removeAttribute("src"); detailPoster.alt = "Poster unavailable"; detailPoster.classList.add("poster-unavailable"); }
+    detailPoster.alt = (item.title || "Title") + " poster";
+  }
   $("details-title").textContent = item.title || "";
   $("details-year").textContent = item.year || "";
   $("details-category").textContent = item.type === "show" ? "Web Series" : "Movie";
@@ -1602,40 +1571,47 @@ $("trakt-admin-add")?.addEventListener("click", () => {
 });
 
 if (traktResults) {
-  traktResults.addEventListener("click", (event) => {
+  document.addEventListener("click", (event) => {
     const card = event.target.closest("[data-trakt-index]");
     if (!card) return;
-    openTraktDetails(traktVisibleItems[Number(card.dataset.traktIndex)]);
+    const index = Number(card.dataset.traktIndex);
+    if (Number.isInteger(index) && traktVisibleItems[index]) openTraktDetails(traktVisibleItems[index]);
   });
-  traktResults.addEventListener("keydown", (event) => {
+  document.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     const card = event.target.closest("[data-trakt-index]");
     if (!card) return;
+    const index = Number(card.dataset.traktIndex);
+    if (!Number.isInteger(index) || !traktVisibleItems[index]) return;
     event.preventDefault();
-    openTraktDetails(traktVisibleItems[Number(card.dataset.traktIndex)]);
+    openTraktDetails(traktVisibleItems[index]);
   });
 }
 
-async function loadTraktDiscovery(query = "") {
+async function loadTraktDiscovery(query = "", page = 1) {
   if (!traktResults || !traktStatus) return;
   const requestId = ++traktRequestSequence;
-  traktStatus.textContent = query ? "Searching Trakt..." : "Loading trending titles...";
+  traktCurrentQuery = String(query || "").trim();
+  traktCurrentPage = Math.max(1, Number(page) || 1);
+  traktLoading = true;
+  renderMoviePagination();
+  traktStatus.textContent = query ? "Searching catalogue..." : "Loading movies and web series...";
   try {
-    const params = new URLSearchParams({ type: traktType });
-    const endpoint = query
-      ? (params.set("q", query), "/api/trakt/search?" + params.toString())
-      : "/api/trakt/discover?" + params.toString();
+    const params = new URLSearchParams({ type: traktType, page: String(traktCurrentPage) });
+    const endpoint = query ? (params.set("q", query), "/api/trakt/search?" + params.toString()) : "/api/trakt/discover?" + params.toString();
     const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
     const data = await response.json();
     if (requestId !== traktRequestSequence) return;
-    if (!response.ok) throw new Error(data.error || "Trakt request failed.");
-    renderTraktResults(data.results || []);
-    traktStatus.textContent = query
-      ? `Search results for “${query}”`
-      : `Trending ${traktType === "shows" ? "web series" : "movies"}`;
+    if (!response.ok) throw new Error(data.error || "Catalogue request failed.");
+    renderTraktResults(data.results || [], !!data.hasMore);
+    traktStatus.textContent = query ? `Search results for “${query}” · Page ${traktCurrentPage}` : `Trending ${traktType === "shows" ? "web series" : "movies"} · Page ${traktCurrentPage}`;
   } catch (error) {
     if (requestId !== traktRequestSequence) return;
-    traktStatus.textContent = error.message || "Unable to load Trakt titles.";
+    traktVisibleItems = [];
+    renderCurrentMoviePage();
+    traktStatus.textContent = error.message || "Unable to load catalogue.";
+  } finally {
+    if (requestId === traktRequestSequence) { traktLoading = false; renderMoviePagination(); }
   }
 }
 
@@ -1644,7 +1620,7 @@ document.querySelectorAll("[data-trakt-type]").forEach((button) => {
     traktType = button.dataset.traktType === "shows" ? "shows" : "movies";
     document.querySelectorAll("[data-trakt-type]").forEach((item) => item.classList.toggle("active", item === button));
     if (traktSearchInput) traktSearchInput.value = "";
-    loadTraktDiscovery();
+    loadTraktDiscovery("", 1);
   });
 });
 
