@@ -1678,6 +1678,10 @@ function showCatalogPage(view) {
   if (searchInput) searchInput.value = "";
   activeMovieSearch = "";
   setSearchSectionsHidden(false);
+  // Keep the legacy homepage rows hidden; the selected page uses the single main catalogue grid.
+  [ $("home"), trendingList?.closest(".movie-section"), recentList?.closest(".movie-section"),
+    categoryList?.closest(".movie-section"), continueWatchingSection, watchHistorySection
+  ].forEach(section => { if (section) section.hidden = true; });
   activeCatalogFeed = nextView === "recent" ? "recent" : "trending";
   if (nextView === "trending" || nextView === "recent" || nextView === "home" || nextView === "discover") {
     loadTraktDiscovery("", 1, activeCatalogFeed);
