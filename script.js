@@ -1388,37 +1388,103 @@ function traktImageUrl(rawUrl) {
   return "/api/trakt/image?url=" + encodeURIComponent(source);
 }
 
+let traktVisibleItems = [];
+
 function renderTraktResults(items) {
   if (!traktResults) return;
-  if (!items.length) {
+  traktVisibleItems = Array.isArray(items) ? items : [];
+  if (!traktVisibleItems.length) {
     traktResults.innerHTML = '<div class="no-results"><h3>No titles found</h3><p>Try another title.</p></div>';
     return;
   }
-  traktResults.innerHTML = items.map((item) => {
+  traktResults.innerHTML = traktVisibleItems.map((item, index) => {
     const title = item.title || "Untitled";
     const poster = traktImageUrl(item.poster);
     const year = item.year || "";
     const rating = Number(item.rating || 0);
     const kind = item.type === "show" ? "Web Series" : "Movie";
-    const link = item.slug
-      ? "https://trakt.tv/" + (item.type === "show" ? "shows/" : "movies/") + encodeURIComponent(item.slug)
-      : "https://trakt.tv/";
     return `
-      <article class="movie-card trakt-card">
-        <a class="trakt-card-link" href="${escapeHTML(link)}" target="_blank" rel="noopener noreferrer">
-          <div class="movie-poster">
-            <img src="${escapeHTML(poster)}" alt="${escapeHTML(title)}" loading="lazy"
-              onerror="this.closest('.movie-poster').classList.add('poster-unavailable');this.remove()">
-            <span class="trakt-kind">${kind}</span>
-            ${rating ? `<span class="movie-rating">★ ${rating.toFixed(1)}</span>` : ""}
-          </div>
-          <div class="movie-info">
-            <h3>${escapeHTML(title)}</h3>
-            <p>${escapeHTML(year)} · Open on Trakt ↗</p>
-          </div>
-        </a>
+      <article class="movie-card trakt-card" data-trakt-index="${index}" role="button" tabindex="0" aria-label="View details for ${escapeHTML(title)}">
+        <div class="movie-poster">
+          ${poster ? `<img src="${escapeHTML(poster)}" alt="${escapeHTML(title)}" loading="lazy" onerror="this.closest('.movie-poster').classList.add('poster-unavailable');this.remove()">` : '<div class="poster-unavailable"></div>'}
+          <span class="trakt-kind">${kind}</span>
+          ${rating ? `<span class="movie-rating">★ ${rating.toFixed(1)}</span>` : ""}
+        </div>
+        <div class="movie-info">
+          <h3>${escapeHTML(title)}</h3>
+          <p>${escapeHTML(year)} · View Details</p>
+        </div>
       </article>`;
   }).join("");
+}
+
+function openTraktDetails(item) {
+  if (!item || !detailsSection) return;
+  currentMovieId = null;
+  if (watchMoreTimer) { clearTimeout(watchMoreTimer); watchMoreTimer = null; }
+  const localMatch = movies.find(movie =>
+    String(movie.title || "").trim().toLowerCase() === String(item.title || "").trim().toLowerCase() &&
+    (!item.year || !movie.year || String(movie.year) === String(item.year))
+  );
+  const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
+  $("details-poster").src = poster;
+  $("details-poster").alt = (item.title || "Title") + " poster";
+  $("details-title").textContent = item.title || "";
+  $("details-year").textContent = item.year || "";
+  $("details-category").textContent = item.type === "show" ? "Web Series" : "Movie";
+  $("details-rating").textContent = item.rating ? "★ " + Number(item.rating).toFixed(1) + " / 10" : "";
+  $("details-description").textContent = item.overview || "Description is not available for this title yet.";
+  $("movie-trailer").src = "";
+  $("trailer-container").hidden = true;
+  $("screenshots-section").hidden = true;
+
+  const watchMoreArea = $("watch-more-area");
+  const downloadArea = $("download-area");
+  const downloadButtons = $("download-buttons");
+  const downloadOptions = localMatch ? [
+    ["480p", localMatch.download480Url],
+    ["720p", localMatch.download720Url],
+    ["1080p", localMatch.download1080Url]
+  ].filter(([, url]) => isSafeHttpUrl(url)) : [];
+
+  watchMoreArea.hidden = false;
+  downloadArea.hidden = false;
+  downloadButtons.innerHTML = downloadOptions.length
+    ? downloadOptions.map(([quality, url]) =>
+        `<a class="primary-btn download-quality-btn" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${quality} Download</a>`
+      ).join("")
+    : '<p class="trakt-status">No authorized links have been added for this title yet.</p>';
+  if (downloadOptions.length) loadMonetagWatchMoreAd();
+
+  activeScreenshots = [];
+  hideSection(websiteSection);
+  hideSection(adminPanel);
+  hideSection(loginSection);
+  showSection(detailsSection);
+  loadMovieDetailsAd();
+
+  const currentState = window.history.state || {};
+  window.history.pushState(
+    { ...currentState, solexflixDetails: true, traktDetails: true },
+    "",
+    window.location.pathname + window.location.hash
+  );
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+if (traktResults) {
+  traktResults.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-trakt-index]");
+    if (!card) return;
+    openTraktDetails(traktVisibleItems[Number(card.dataset.traktIndex)]);
+  });
+  traktResults.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const card = event.target.closest("[data-trakt-index]");
+    if (!card) return;
+    event.preventDefault();
+    openTraktDetails(traktVisibleItems[Number(card.dataset.traktIndex)]);
+  });
 }
 
 async function loadTraktDiscovery(query = "") {
