@@ -597,15 +597,15 @@ function getMovieVideoConfig(value) {
   if (!isSafeHttpUrl(raw)) return null;
   try {
     const url = new URL(raw);
-    if (/\\.(mp4|webm|ogg|m4v)(?:$|[?#])/i.test(url.pathname + url.search)) {
+    if (/\.(mp4|webm|ogg|m4v)(?:$|[?#])/i.test(url.pathname + url.search)) {
       return { type: "file", src: raw };
     }
-    if (url.hostname === "youtu.be" || /(^|\\.)youtube\\.com$/i.test(url.hostname)) {
+    if (url.hostname === "youtu.be" || /(^|\.)youtube\.com$/i.test(url.hostname)) {
       const embed = getYouTubeEmbedUrl(raw);
       return embed ? { type: "embed", src: embed } : null;
     }
-    if (/(^|\\.)vimeo\\.com$/i.test(url.hostname)) {
-      const match = url.pathname.match(/\\/(?:video\\/)?(\\d+)/);
+    if (/(^|\.)vimeo\.com$/i.test(url.hostname)) {
+      const match = url.pathname.match(/\/(?:video\/)?(\d+)/);
       return match ? { type: "embed", src: "https://player.vimeo.com/video/" + match[1] } : null;
     }
     return null;
