@@ -197,6 +197,7 @@ export default {
       try {
         const type = url.searchParams.get("type") === "shows" ? "shows" : "movies";
         const query = String(url.searchParams.get("q") || "").trim().slice(0, 100);
+        const feed = url.searchParams.get("feed") === "recent" ? "recent" : "trending";
         const page = Math.min(100, Math.max(1, Number(url.searchParams.get("page") || 1) || 1));
         const limit = url.pathname.endsWith("/search") ? 20 : 12;
         const pagination = new URLSearchParams({ page: String(page), limit: String(limit), extended: "full" });
@@ -205,7 +206,7 @@ export default {
           if (query.length < 2) return jsonResponse({ error: "Enter at least 2 characters." }, 400, 0);
           pagination.set("query", query);
           path = "/search/" + (type === "shows" ? "show" : "movie") + "?" + pagination.toString();
-        } else path = "/" + type + "/trending?" + pagination.toString();
+        } else path = "/" + type + (feed === "recent" ? "/recently_watched?" : "/trending?") + pagination.toString();
         const data = await traktJson(path, env);
         const results = await normalizeTraktItems(data, type, env);
         return jsonResponse({ results, page, hasMore: Array.isArray(data) && data.length === limit }, 200, 60);
