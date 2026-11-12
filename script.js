@@ -357,7 +357,13 @@ function renderMovieGrid(list = movies) {
 function renderCurrentMoviePage() {
   if (!movieGrid) return;
   const cards = (traktVisibleItems || []).map((item, index) => traktMovieCard(item, index)).join("");
-  movieGrid.innerHTML = cards || '<div class="no-results"><div class="no-results-icon">🎬</div><h3>No titles found</h3><p>Try another title.</p></div>';
+  if (cards) {
+    movieGrid.innerHTML = cards;
+  } else if (traktLoading) {
+    movieGrid.innerHTML = '<div class="trakt-status" role="status">Loading movies and web series...</div>';
+  } else {
+    movieGrid.innerHTML = '<div class="no-results"><div class="no-results-icon">🎬</div><h3>No titles found</h3><p>Try another title.</p></div>';
+  }
   renderMoviePagination();
 }
 function renderMoviePagination() {
@@ -1410,7 +1416,7 @@ const traktSearchForm = $("trakt-search-form");
 const traktSearchInput = $("trakt-search-input");
 let traktType = "movies";
 let traktRequestSequence = 0;
-let traktCurrentPage = 1, traktHasMore = false, traktCurrentQuery = "", traktLoading = false;
+let traktCurrentPage = 1, traktHasMore = false, traktCurrentQuery = "", traktLoading = true;
 
 function traktSourceImageUrl(rawUrl) {
   if (!rawUrl) return "";
@@ -1630,7 +1636,11 @@ async function loadTraktDiscovery(query = "", page = 1) {
     renderCurrentMoviePage();
     traktStatus.textContent = error.message || "Unable to load catalogue.";
   } finally {
-    if (requestId === traktRequestSequence) { traktLoading = false; renderMoviePagination(); }
+    if (requestId === traktRequestSequence) {
+      traktLoading = false;
+      renderCurrentMoviePage();
+      renderMoviePagination();
+    }
   }
 }
 
