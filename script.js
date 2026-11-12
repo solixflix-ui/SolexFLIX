@@ -1678,23 +1678,10 @@ function openLinkEditor() {
   const match = movies.find(movie => movie.id === linkEditorMovieId);
   if (!match) return;
   $("link-editor-title").textContent = "Edit — " + (match.title || "Movie");
-  $("link-editor-trakt-details").innerHTML = "";
-  [
-    ["Title", match.title], ["Year", match.year], ["Category", match.category],
-    ["Rating", match.rating], ["Description", match.description]
-  ].forEach(([label, value]) => {
-    const row = document.createElement("div");
-    const term = document.createElement("dt");
-    const detail = document.createElement("dd");
-    term.textContent = label;
-    detail.textContent = value == null || value === "" ? "—" : String(value);
-    row.append(term, detail);
-    $("link-editor-trakt-details").append(row);
-  });
-  ["link-editor-video", "link-editor-trailer", "link-editor-480", "link-editor-720", "link-editor-1080", "link-editor-screenshots"].forEach(id => { $(id).value = ""; });
+  ["link-editor-poster-url", "link-editor-poster-file", "link-editor-video", "link-editor-trailer", "link-editor-480", "link-editor-720", "link-editor-1080", "link-editor-screenshots"].forEach(id => { $(id).value = ""; });
   $("link-editor-message").textContent = "";
   $("link-editor-modal").hidden = false;
-  setLinkEditorTab("trakt");
+  setLinkEditorTab("poster");
 }
 
 function closeLinkEditor() {
@@ -1703,19 +1690,46 @@ function closeLinkEditor() {
 }
 
 function setLinkEditorTab(tab) {
-  const trakt = tab === "trakt";
+  const poster = tab === "poster";
   const links = tab === "links";
-  $("link-editor-trakt-panel").hidden = !trakt;
+  $("link-editor-poster-panel").hidden = !poster;
   $("link-editor-link-panel").hidden = !links;
-  $("link-editor-screenshot-panel").hidden = !links;
-  $("link-editor-tab-trakt").classList.toggle("active", trakt);
+  $("link-editor-tab-poster").classList.toggle("active", poster);
   $("link-editor-tab-links").classList.toggle("active", links);
 }
 
 $("details-edit")?.addEventListener("click", openLinkEditor);
 $("link-editor-close")?.addEventListener("click", closeLinkEditor);
-$("link-editor-tab-trakt")?.addEventListener("click", () => setLinkEditorTab("trakt"));
+$("link-editor-tab-poster")?.addEventListener("click", () => setLinkEditorTab("poster"));
 $("link-editor-tab-links")?.addEventListener("click", () => setLinkEditorTab("links"));
+
+$("link-editor-save-poster")?.addEventListener("click", async () => {
+  if (!isAdmin || !linkEditorMovieId) return;
+  const file = $("link-editor-poster-file").files[0];
+  const url = $("link-editor-poster-url").value.trim();
+  if (!file && !url) {
+    $("link-editor-message").textContent = "Poster image upload karo ya image URL do.";
+    return;
+  }
+  if (!file && !isSafeHttpUrl(url)) {
+    $("link-editor-message").textContent = "Valid http:// ya https:// poster URL do.";
+    return;
+  }
+  const button = $("link-editor-save-poster");
+  button.disabled = true;
+  try {
+    const poster = file ? await uploadPoster(file) : url;
+    await updateDoc(doc(db, "movies", linkEditorMovieId), { poster, updatedAt: serverTimestamp() });
+    movies = movies.map(movie => movie.id === linkEditorMovieId ? { ...movie, poster } : movie);
+    if ($("details-poster")) $("details-poster").src = poster;
+    renderAll();
+    $("link-editor-message").textContent = "Poster alag se save ho gaya. Baaki Trakt details same hain.";
+    $("link-editor-poster-url").value = "";
+    $("link-editor-poster-file").value = "";
+  } catch (error) {
+    $("link-editor-message").textContent = error.message || "Poster save nahi ho paaya.";
+  } finally { button.disabled = false; }
+});
 
 $("link-editor-save-links")?.addEventListener("click", async () => {
   if (!isAdmin || !linkEditorMovieId) return;
