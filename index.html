@@ -188,7 +188,13 @@
       </button>
 
       <div class="details-container">
-        <img id="details-poster" src="" alt="Movie Poster">
+        <div class="details-poster-wrap">
+          <img id="details-poster" src="" alt="Movie Poster">
+          <div id="poster-admin-controls" class="poster-admin-controls" hidden>
+            <button id="poster-trakt-locked" class="secondary-btn" type="button" disabled>Trakt Details · Keep Original</button>
+            <button id="trakt-admin-edit-links" class="primary-btn" type="button">Edit Screenshots &amp; Download Links</button>
+          </div>
+        </div>
 
         <div class="details-info">
           <h1 id="details-title"></h1>
@@ -197,7 +203,6 @@
           <p id="details-rating"></p>
           <p id="details-description"></p>
           <button id="trakt-admin-add" class="secondary-btn" type="button" hidden>Add this title &amp; manage links</button>
-          <button id="trakt-admin-edit-links" class="secondary-btn" type="button" hidden>Manage Links &amp; Screenshots</button>
 
           <div id="movie-video-container" class="movie-video-container" hidden>
             <h2>Watch Video</h2>

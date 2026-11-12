@@ -722,6 +722,11 @@ currentMovieId = id;
   showSection(detailsSection);
   loadMovieDetailsAd();
 
+  const posterAdminControls = $("poster-admin-controls");
+  const traktAddButton = $("trakt-admin-add");
+  if (posterAdminControls) posterAdminControls.hidden = !isAdmin;
+  if (traktAddButton) traktAddButton.hidden = true;
+
   if ($("details-poster")) {
     $("details-poster").src = getPoster(movie);
   }
@@ -1591,9 +1596,9 @@ function openTraktDetails(item) {
   const proxyPoster = traktImageUrl(item.poster);
   const detailPoster = $("details-poster");
   const adminAddButton = $("trakt-admin-add");
-  const adminEditLinksButton = $("trakt-admin-edit-links");
+  const posterAdminControls = $("poster-admin-controls");
   if (adminAddButton) adminAddButton.hidden = !!localMatch || !isAdmin;
-  if (adminEditLinksButton) adminEditLinksButton.hidden = !localMatch || !isAdmin;
+  if (posterAdminControls) posterAdminControls.hidden = !localMatch || !isAdmin;
   if (detailPoster) {
     detailPoster.onerror = () => {
       if (proxyPoster && detailPoster.src !== proxyPoster) detailPoster.src = proxyPoster;
@@ -1671,11 +1676,14 @@ $("trakt-admin-add")?.addEventListener("click", () => {
 });
 
 function openLinkEditor() {
-  if (!isAdmin || !pendingTraktItem) return;
-  const match = movies.find(movie =>
-    String(movie.title || "").trim().toLowerCase() === String(pendingTraktItem.title || "").trim().toLowerCase() &&
-    (!pendingTraktItem.year || !movie.year || String(movie.year) === String(pendingTraktItem.year))
-  );
+  if (!isAdmin) return;
+  let match = currentMovieId ? movies.find(movie => movie.id === currentMovieId) : null;
+  if (!match && pendingTraktItem) {
+    match = movies.find(movie =>
+      String(movie.title || "").trim().toLowerCase() === String(pendingTraktItem.title || "").trim().toLowerCase() &&
+      (!pendingTraktItem.year || !movie.year || String(movie.year) === String(pendingTraktItem.year))
+    );
+  }
   if (!match) return;
   linkEditorMovieId = match.id;
   $("link-editor-title").textContent = "Add links & screenshots — " + (match.title || "Movie");
