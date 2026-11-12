@@ -213,7 +213,7 @@ export default {
         } else path = "/" + type + (feed === "recent" ? "/watched?" : "/trending?") + pagination.toString();
         const data = await traktJson(path, env);
         const results = await normalizeTraktItems(data, type, env);
-        const response = jsonResponse({ results, page, hasMore: Array.isArray(data) && data.length === limit }, 200, 180);
+        const response = jsonResponse({ results, page, hasMore: Array.isArray(data) && data.length === limit }, 200, 86400);
         await cache.put(cacheKey, response.clone());
         return response;
       } catch (error) {
