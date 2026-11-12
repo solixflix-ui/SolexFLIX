@@ -365,9 +365,11 @@ function renderCurrentMoviePage() {
   currentMoviePage = Math.min(Math.max(1, currentMoviePage), totalPages);
   const start = (currentMoviePage - 1) * MOVIES_PER_PAGE;
   const pageMovies = currentMovieList.slice(start, start + MOVIES_PER_PAGE);
+  const localCards = pageMovies.map(movieCard).join("");
+  const discoveryCards = (traktVisibleItems || []).map((item, index) => traktMovieCard(item, index)).join("");
 
-  if (pageMovies.length) {
-    movieGrid.innerHTML = pageMovies.map(movieCard).join("");
+  if (localCards || discoveryCards) {
+    movieGrid.innerHTML = localCards + discoveryCards;
   } else {
     movieGrid.innerHTML = `
       <div class="no-results">
@@ -1375,7 +1377,7 @@ if ($("logout-btn")) {
    Results are fetched for visitor searches and
    trending views; no bulk catalogue mirroring.
 ========================================= */
-const traktResults = $("trakt-results");
+const traktResults = $("movie-grid");
 const traktStatus = $("trakt-status");
 const traktSearchForm = $("trakt-search-form");
 const traktSearchInput = $("trakt-search-input");
@@ -1390,38 +1392,34 @@ function traktImageUrl(rawUrl) {
 
 let traktVisibleItems = [];
 
-function renderTraktResults(items) {
-  if (!traktResults) return;
-  traktVisibleItems = Array.isArray(items) ? items : [];
-  if (!traktVisibleItems.length) {
-    traktResults.innerHTML = '<div class="no-results"><h3>No titles found</h3><p>Try another title.</p></div>';
-    return;
-  }
-  traktResults.innerHTML = traktVisibleItems.map((item, index) => {
-    const title = item.title || "Untitled";
-    const localMatch = movies.find(movie =>
-      String(movie.title || "").trim().toLowerCase() === String(title).trim().toLowerCase() &&
-      (!item.year || !movie.year || String(movie.year) === String(item.year))
-    );
-    const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
-    const year = item.year || "";
-    const rating = Number(item.rating || 0);
-    const kind = item.type === "show" ? "Web Series" : "Movie";
-    return `
-      <article class="movie-card trakt-card" data-trakt-index="${index}" role="button" tabindex="0" aria-label="View details for ${escapeHTML(title)}">
-        <div class="movie-poster">
-          ${poster ? `<img src="${escapeHTML(poster)}" alt="${escapeHTML(title)}" loading="lazy" onerror="this.closest('.movie-poster').classList.add('poster-unavailable');this.remove()">` : '<div class="poster-unavailable"></div>'}
-          <span class="trakt-kind">${kind}</span>
-          ${rating ? `<span class="movie-rating">★ ${rating.toFixed(1)}</span>` : ""}
-        </div>
-        <div class="movie-info">
-          <h3>${escapeHTML(title)}</h3>
-          <p>${escapeHTML(year)} · View Details</p>
-        </div>
-      </article>`;
-  }).join("");
+function traktMovieCard(item, index) {
+  const title = item.title || "Untitled";
+  const localMatch = movies.find(movie =>
+    String(movie.title || "").trim().toLowerCase() === String(title).trim().toLowerCase() &&
+    (!item.year || !movie.year || String(movie.year) === String(item.year))
+  );
+  const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
+  const year = item.year || "";
+  const rating = Number(item.rating || 0);
+  const kind = item.type === "show" ? "Web Series" : "Movie";
+  return `
+    <article class="movie-card trakt-card" data-trakt-index="${index}" role="button" tabindex="0" aria-label="View details for ${escapeHTML(title)}">
+      <div class="movie-poster">
+        ${poster ? `<img src="${escapeHTML(poster)}" alt="${escapeHTML(title)}" loading="lazy" onerror="this.closest('.movie-poster').classList.add('poster-unavailable');this.remove()">` : '<div class="poster-unavailable"></div>'}
+        <span class="trakt-kind">${kind}</span>
+        ${rating ? `<span class="movie-rating">★ ${rating.toFixed(1)}</span>` : ""}
+      </div>
+      <div class="movie-info">
+        <h3>${escapeHTML(title)}</h3>
+        <p>${escapeHTML(year)} · View Details</p>
+      </div>
+    </article>`;
 }
 
+function renderTraktResults(items) {
+  traktVisibleItems = Array.isArray(items) ? items : [];
+  renderCurrentMoviePage();
+}
 function openTraktDetails(item) {
   if (!item || !detailsSection) return;
   currentMovieId = null;
@@ -1454,8 +1452,11 @@ function openTraktDetails(item) {
   downloadButtons.innerHTML = downloadOptions.map(([quality, url]) =>
     `<a class="primary-btn download-quality-btn" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${quality} Download</a>`
   ).join("");
-  downloadArea.hidden = true;
-  watchMoreArea.hidden = downloadOptions.length === 0;
+  downloadArea.hidden = downloadOptions.length > 0;
+  watchMoreArea.hidden = false;
+  if (!downloadOptions.length) {
+    downloadButtons.innerHTML = '<p class="trakt-no-links">No download links have been added for this title yet.</p>';
+  }
 
   if (downloadOptions.length) {
     loadMonetagWatchMoreAd();
