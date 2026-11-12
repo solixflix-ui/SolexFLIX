@@ -68,6 +68,7 @@ let currentUser = null;
 let isAdmin = false;
 let movies = [];
 let editingMovieId = null;
+let pendingTraktItem = null;
 
 
 /* =========================================
@@ -890,6 +891,7 @@ function openAdminLogin() {
 
   if (isAdmin) {
     showAdminDashboard();
+    if (pendingTraktItem) prefillTraktItemInAdmin(pendingTraktItem);
   } else {
     showSection(loginSection);
     hideSection(adminPanel);
@@ -1080,6 +1082,7 @@ if (movieForm) {
     const screenshots = String($("movie-screenshots-input")?.value || "")
       .split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
     const posterFile = posterInput?.files[0];
+    const posterUrlInput = String($("movie-poster-url")?.value || "").trim();
 
     if (!title || !description || !year || !category) {
       showMessage(movieMessage, "Please fill all required fields.");
@@ -1090,8 +1093,8 @@ if (movieForm) {
       ? movies.find((movie) => movie.id === editingMovieId)
       : null;
 
-    if (!posterFile && !existingMovie) {
-      showMessage(movieMessage, "Please select a movie poster.");
+    if (!posterFile && !existingMovie && !isSafeHttpUrl(posterUrlInput)) {
+      showMessage(movieMessage, "Please upload a poster or enter a valid poster URL.");
       return;
     }
 
@@ -1103,7 +1106,7 @@ if (movieForm) {
         saveButton.textContent = "Please wait...";
       }
 
-      let poster = existingMovie ? getPoster(existingMovie) : "";
+      let poster = existingMovie ? getPoster(existingMovie) : posterUrlInput;
 
       if (posterFile) {
         showMessage(movieMessage, "Uploading poster...", true);
@@ -1149,6 +1152,7 @@ if (movieForm) {
       movieForm.reset();
 
       editingMovieId = null;
+      pendingTraktItem = null;
 
       if ($("form-heading")) {
         $("form-heading").textContent = "Add New Movie";
@@ -1339,6 +1343,7 @@ if (adminMovieList) {
 if ($("cancel-edit-btn")) {
   $("cancel-edit-btn").addEventListener("click", () => {
     editingMovieId = null;
+    pendingTraktItem = null;
     movieForm.reset();
 
     $("form-heading").textContent = "Add New Movie";
@@ -1420,6 +1425,32 @@ function renderTraktResults(items) {
   traktVisibleItems = Array.isArray(items) ? items : [];
   renderCurrentMoviePage();
 }
+function prefillTraktItemInAdmin(item) {
+  if (!item || !isAdmin) return;
+  pendingTraktItem = item;
+  editingMovieId = null;
+  movieForm.reset();
+  $("movie-title").value = item.title || "";
+  $("movie-description").value = item.overview || "Description to be added by admin.";
+  $("movie-year").value = item.year || "";
+  $("movie-category").value = item.type === "show" ? "Web Series" : "Other";
+  $("movie-rating").value = item.rating || "";
+  $("movie-poster-url").value = traktImageUrl(item.poster);
+  $("movie-trailer-url").value = "";
+  $("movie-download-480").value = "";
+  $("movie-download-720").value = "";
+  $("movie-download-1080").value = "";
+  $("movie-screenshots-input").value = "";
+  if (posterPreview) {
+    posterPreview.src = traktImageUrl(item.poster);
+    posterPreview.hidden = !item.poster;
+  }
+  $("form-heading").textContent = "Add Title & Links";
+  $("save-movie-btn").textContent = "Save Title & Links";
+  $("cancel-edit-btn").hidden = false;
+  movieForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function openTraktDetails(item) {
   if (!item || !detailsSection) return;
   currentMovieId = null;
@@ -1429,6 +1460,8 @@ function openTraktDetails(item) {
     (!item.year || !movie.year || String(movie.year) === String(item.year))
   );
   const poster = traktImageUrl(item.poster) || (localMatch ? getPoster(localMatch) : "");
+  const adminAddButton = $("trakt-admin-add");
+  if (adminAddButton) adminAddButton.hidden = !isAdmin || !!localMatch;
   $("details-poster").src = poster;
   $("details-poster").alt = (item.title || "Title") + " poster";
   $("details-title").textContent = item.title || "";
@@ -1482,6 +1515,19 @@ function openTraktDetails(item) {
   );
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
+$("trakt-admin-add")?.addEventListener("click", () => {
+  if (!pendingTraktItem) return;
+  const item = pendingTraktItem;
+  hideSection(detailsSection);
+  if (isAdmin) {
+    showAdminDashboard();
+    prefillTraktItemInAdmin(item);
+  } else {
+    openAdminLogin();
+    pendingTraktItem = item;
+  }
+});
 
 if (traktResults) {
   traktResults.addEventListener("click", (event) => {
