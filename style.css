@@ -309,7 +309,7 @@ textarea::placeholder {
   align-items: start;
 }
 
-.details-container > img {
+.details-container > .details-poster-wrap {
   width: 100%;
   border-radius: 10px;
   background: #222;
@@ -497,7 +497,7 @@ textarea::placeholder {
     grid-template-columns: 1fr;
   }
 
-  .details-container > img {
+  .details-container > .details-poster-wrap {
     max-width: 230px;
   }
 
