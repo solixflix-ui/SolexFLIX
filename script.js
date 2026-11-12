@@ -1166,6 +1166,7 @@ if (movieForm) {
       }
 
       await loadMovies();
+loadTraktDiscovery();
 
     } catch (error) {
       console.error("Save movie error:", error);
@@ -1364,6 +1365,104 @@ if ($("logout-btn")) {
     } catch (error) {
       alert(error.message);
     }
+  });
+}
+
+
+
+/* =========================================
+   TRAKT ON-DEMAND DISCOVERY
+   Results are fetched for visitor searches and
+   trending views; no bulk catalogue mirroring.
+========================================= */
+const traktResults = $("trakt-results");
+const traktStatus = $("trakt-status");
+const traktSearchForm = $("trakt-search-form");
+const traktSearchInput = $("trakt-search-input");
+let traktType = "movies";
+let traktRequestSequence = 0;
+
+function traktImageUrl(rawUrl) {
+  if (!rawUrl) return "";
+  const source = String(rawUrl).startsWith("http") ? rawUrl : "https://" + rawUrl;
+  return "/api/trakt/image?url=" + encodeURIComponent(source);
+}
+
+function renderTraktResults(items) {
+  if (!traktResults) return;
+  if (!items.length) {
+    traktResults.innerHTML = '<div class="no-results"><h3>No titles found</h3><p>Try another title.</p></div>';
+    return;
+  }
+  traktResults.innerHTML = items.map((item) => {
+    const title = item.title || "Untitled";
+    const poster = traktImageUrl(item.poster);
+    const year = item.year || "";
+    const rating = Number(item.rating || 0);
+    const kind = item.type === "show" ? "Web Series" : "Movie";
+    const link = item.slug
+      ? "https://trakt.tv/" + (item.type === "show" ? "shows/" : "movies/") + encodeURIComponent(item.slug)
+      : "https://trakt.tv/";
+    return `
+      <article class="movie-card trakt-card">
+        <a class="trakt-card-link" href="${escapeHTML(link)}" target="_blank" rel="noopener noreferrer">
+          <div class="movie-poster">
+            <img src="${escapeHTML(poster)}" alt="${escapeHTML(title)}" loading="lazy"
+              onerror="this.closest('.movie-poster').classList.add('poster-unavailable');this.remove()">
+            <span class="trakt-kind">${kind}</span>
+            ${rating ? `<span class="movie-rating">★ ${rating.toFixed(1)}</span>` : ""}
+          </div>
+          <div class="movie-info">
+            <h3>${escapeHTML(title)}</h3>
+            <p>${escapeHTML(year)} · Open on Trakt ↗</p>
+          </div>
+        </a>
+      </article>`;
+  }).join("");
+}
+
+async function loadTraktDiscovery(query = "") {
+  if (!traktResults || !traktStatus) return;
+  const requestId = ++traktRequestSequence;
+  traktStatus.textContent = query ? "Searching Trakt..." : "Loading trending titles...";
+  traktResults.innerHTML = "";
+  try {
+    const params = new URLSearchParams({ type: traktType });
+    const endpoint = query
+      ? (params.set("q", query), "/api/trakt/search?" + params.toString())
+      : "/api/trakt/discover?" + params.toString();
+    const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+    const data = await response.json();
+    if (requestId !== traktRequestSequence) return;
+    if (!response.ok) throw new Error(data.error || "Trakt request failed.");
+    renderTraktResults(data.results || []);
+    traktStatus.textContent = query
+      ? `Search results for “${query}”`
+      : `Trending ${traktType === "shows" ? "web series" : "movies"}`;
+  } catch (error) {
+    if (requestId !== traktRequestSequence) return;
+    traktStatus.textContent = error.message || "Unable to load Trakt titles.";
+  }
+}
+
+document.querySelectorAll("[data-trakt-type]").forEach((button) => {
+  button.addEventListener("click", () => {
+    traktType = button.dataset.traktType === "shows" ? "shows" : "movies";
+    document.querySelectorAll("[data-trakt-type]").forEach((item) => item.classList.toggle("active", item === button));
+    if (traktSearchInput) traktSearchInput.value = "";
+    loadTraktDiscovery();
+  });
+});
+
+if (traktSearchForm) {
+  traktSearchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const query = String(traktSearchInput?.value || "").trim();
+    if (query.length < 2) {
+      traktStatus.textContent = "Please enter at least 2 characters.";
+      return;
+    }
+    loadTraktDiscovery(query);
   });
 }
 
