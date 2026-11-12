@@ -191,8 +191,7 @@
         <div class="details-poster-column">
           <img id="details-poster" src="" alt="Movie Poster">
           <div id="details-admin-controls" class="details-admin-controls" hidden>
-            <button id="details-edit-poster" class="secondary-btn" type="button">Edit Poster</button>
-            <button id="details-edit-links" class="secondary-btn" type="button">Edit Screenshots &amp; Download Links</button>
+            <button id="details-edit" class="secondary-btn" type="button">Edit</button>
           </div>
         </div>
 
@@ -243,29 +242,21 @@
     </div>
   </section>
 
-  <!-- ADMIN-ONLY POSTER EDITOR -->
-  <div id="poster-editor-modal" class="link-editor-modal" hidden role="dialog" aria-modal="true" aria-labelledby="poster-editor-title">
-    <div class="link-editor-card">
-      <button id="poster-editor-close" class="link-editor-close" type="button" aria-label="Close">×</button>
-      <h2 id="poster-editor-title">Edit Poster</h2>
-      <p>Only the poster will be changed. Trakt title, rating and all other details stay the same.</p>
-      <input id="poster-editor-url" type="url" placeholder="New poster image URL">
-      <input id="poster-editor-file" type="file" accept="image/*">
-      <button id="poster-editor-save" class="primary-btn" type="button">Save Poster</button>
-      <p id="poster-editor-message" role="status" aria-live="polite"></p>
-    </div>
-  </div>
-
+  <!-- SINGLE ADMIN EDIT BUTTON OPENS TWO SEPARATE SECTIONS -->
   <!-- ADMIN-ONLY LINK AND SCREENSHOT EDITOR -->
   <div id="link-editor-modal" class="link-editor-modal" hidden role="dialog" aria-modal="true" aria-labelledby="link-editor-title">
     <div class="link-editor-card">
       <button id="link-editor-close" class="link-editor-close" type="button" aria-label="Close">×</button>
-      <h2 id="link-editor-title">Manage Links &amp; Screenshots</h2>
+      <h2 id="link-editor-title">Edit Movie</h2>
       <div class="link-editor-tabs">
-        <button id="link-editor-tab-link" class="active" type="button">Add Link</button>
-        <button id="link-editor-tab-screenshots" type="button">Add Screenshot</button>
+        <button id="link-editor-tab-trakt" class="active" type="button">Trakt Details</button>
+        <button id="link-editor-tab-links" type="button">Screenshots &amp; Download Links</button>
       </div>
-      <div id="link-editor-link-panel">
+      <div id="link-editor-trakt-panel">
+        <p>Trakt se aayi movie information yahan sirf dikhayi jayegi. Title, poster, rating, year, category aur description ko change nahi kiya jayega.</p>
+        <dl id="link-editor-trakt-details" class="link-editor-trakt-details"></dl>
+      </div>
+      <div id="link-editor-link-panel" hidden>
         <p>Add only the links you need. Empty fields are left unchanged.</p>
         <input id="link-editor-video" type="url" placeholder="Movie / Episode Video URL">
         <input id="link-editor-trailer" type="url" placeholder="YouTube Trailer URL">
@@ -274,7 +265,7 @@
         <input id="link-editor-1080" type="url" placeholder="1080p Download Page URL">
         <button id="link-editor-save-links" class="primary-btn" type="button">Save Links</button>
       </div>
-      <div id="link-editor-screenshot-panel" hidden>
+      <div id="link-editor-screenshot-panel">
         <p>Add screenshot image URLs, one per line. Existing screenshots will be kept.</p>
         <textarea id="link-editor-screenshots" rows="5" placeholder="https://example.com/screenshot1.jpg&#10;https://example.com/screenshot2.jpg"></textarea>
         <button id="link-editor-save-screenshots" class="primary-btn" type="button">Save Screenshots</button>
