@@ -68,6 +68,7 @@ let currentUser = null;
 let isAdmin = false;
 let movies = [];
 let editingMovieId = null;
+let editingMovieOriginal = null;
 let pendingTraktItem = null;
 
 
@@ -1160,6 +1161,7 @@ if (movieForm) {
         year: Number(year),
         category,
         rating: rating || "",
+        videoUrl,
         trailerUrl,
         download480Url,
         download720Url,
@@ -1169,12 +1171,50 @@ if (movieForm) {
       };
 
       if (editingMovieId) {
+        // Save only fields the admin actually changed. This prevents adding a
+        // download/video link from overwriting Trakt metadata or other fields.
+        const original = editingMovieOriginal || existingMovie || {};
+        const changedFields = {};
+        const fieldsToCompare = {
+          title,
+          description,
+          year: Number(year),
+          category,
+          rating: rating || "",
+          videoUrl,
+          trailerUrl,
+          download480Url,
+          download720Url,
+          download1080Url,
+          screenshots
+        };
+
+        for (const [field, value] of Object.entries(fieldsToCompare)) {
+          const previousValue = field === "videoUrl"
+            ? (original.videoUrl || original.video || original.movieUrl || original.streamUrl || "")
+            : original[field];
+          const sameValue = Array.isArray(value)
+            ? JSON.stringify(value) === JSON.stringify(previousValue || [])
+            : String(value ?? "") === String(previousValue ?? "");
+          if (!sameValue) changedFields[field] = value;
+        }
+
+        const originalPoster = getPoster(original);
+        if (posterFile || poster !== originalPoster) {
+          changedFields.poster = poster;
+        }
+
+        if (Object.keys(changedFields).length === 0) {
+          showMessage(movieMessage, "Koi naya change nahi hai. Sirf badli hui field save hogi.", true);
+          return;
+        }
+
         await updateDoc(doc(db, "movies", editingMovieId), {
-          ...movieData,
+          ...changedFields,
           updatedAt: serverTimestamp()
         });
 
-        showMessage(movieMessage, "Movie updated successfully!", true);
+        showMessage(movieMessage, "Sirf edited fields update hui hain!", true);
 
       } else {
         await addDoc(moviesRef, {
@@ -1188,6 +1228,7 @@ if (movieForm) {
       movieForm.reset();
 
       editingMovieId = null;
+      editingMovieOriginal = null;
       pendingTraktItem = null;
 
       if ($("form-heading")) {
@@ -1283,6 +1324,10 @@ function editMovie(id) {
   if (!movie) return;
 
   editingMovieId = id;
+  editingMovieOriginal = {
+    ...movie,
+    screenshots: Array.isArray(movie.screenshots) ? [...movie.screenshots] : movie.screenshots
+  };
 
   $("movie-title").value = movie.title || "";
   $("movie-description").value = movie.description || "";
@@ -1381,6 +1426,7 @@ if (adminMovieList) {
 if ($("cancel-edit-btn")) {
   $("cancel-edit-btn").addEventListener("click", () => {
     editingMovieId = null;
+    editingMovieOriginal = null;
     pendingTraktItem = null;
     movieForm.reset();
 
@@ -1493,6 +1539,7 @@ function prefillTraktItemInAdmin(item) {
   if (!item || !isAdmin) return;
   pendingTraktItem = item;
   editingMovieId = null;
+  editingMovieOriginal = null;
   movieForm.reset();
   $("movie-title").value = item.title || "";
   $("movie-description").value = item.overview || "Description to be added by admin.";
