@@ -72,6 +72,7 @@ let editingMovieOriginal = null;
 let pendingTraktItem = null;
 let linkOnlyEditMode = false;
 let linkEditorMovieId = null;
+let returnToDetailsAfterAdminLogin = false;
 
 function setLinkOnlyEditMode(enabled) {
   linkOnlyEditMode = !!enabled;
@@ -723,7 +724,9 @@ currentMovieId = id;
   loadMovieDetailsAd();
 
   linkEditorMovieId = movie.id;
-  if ($("details-admin-controls")) $("details-admin-controls").hidden = !isAdmin;
+  if ($("details-admin-controls")) $("details-admin-controls").hidden = false;
+  if ($("details-edit")) $("details-edit").hidden = !isAdmin;
+  if ($("details-admin-login")) $("details-admin-login").hidden = isAdmin;
   if ($("details-poster")) {
     $("details-poster").src = getPoster(movie);
   }
@@ -941,13 +944,22 @@ document.addEventListener("click", (event) => {
    14. ADMIN LOGIN OPEN
 ========================================= */
 
-function openAdminLogin() {
+function openAdminLogin(fromDetails = false) {
+  returnToDetailsAfterAdminLogin = !!fromDetails;
   hideSection(websiteSection);
   hideSection(detailsSection);
 
   if (isAdmin) {
-    showAdminDashboard();
-    if (pendingTraktItem) prefillTraktItemInAdmin(pendingTraktItem);
+    if (returnToDetailsAfterAdminLogin) {
+      returnToDetailsAfterAdminLogin = false;
+      hideSection(loginSection);
+      if (pendingTraktItem) openTraktDetails(pendingTraktItem);
+      else if (currentMovieId) openMovieDetails(currentMovieId, false);
+      else showAdminDashboard();
+    } else {
+      showAdminDashboard();
+      if (pendingTraktItem) prefillTraktItemInAdmin(pendingTraktItem);
+    }
   } else {
     showSection(loginSection);
     hideSection(adminPanel);
@@ -1635,7 +1647,9 @@ function openTraktDetails(item) {
   const adminAddButton = $("trakt-admin-add");
   const adminControls = $("details-admin-controls");
   if (adminAddButton) adminAddButton.hidden = true;
-  if (adminControls) adminControls.hidden = !isAdmin;
+  if (adminControls) adminControls.hidden = false;
+  if ($("details-edit")) $("details-edit").hidden = !isAdmin;
+  if ($("details-admin-login")) $("details-admin-login").hidden = isAdmin;
   linkEditorMovieId = localMatch?.id || null;
   if (detailPoster) {
     detailPoster.onerror = () => {
@@ -1739,6 +1753,7 @@ function setLinkEditorTab(tab) {
 }
 
 $("details-edit")?.addEventListener("click", openLinkEditor);
+$("details-admin-login")?.addEventListener("click", () => openAdminLogin(true));
 $("link-editor-close")?.addEventListener("click", closeLinkEditor);
 $("link-editor-tab-poster")?.addEventListener("click", () => setLinkEditorTab("poster"));
 $("link-editor-tab-links")?.addEventListener("click", () => setLinkEditorTab("links"));
