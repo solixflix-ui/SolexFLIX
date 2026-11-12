@@ -1451,14 +1451,20 @@ function openTraktDetails(item) {
     ["1080p", localMatch.download1080Url]
   ].filter(([, url]) => isSafeHttpUrl(url)) : [];
 
-  watchMoreArea.hidden = false;
-  downloadArea.hidden = false;
-  downloadButtons.innerHTML = downloadOptions.length
-    ? downloadOptions.map(([quality, url]) =>
-        `<a class="primary-btn download-quality-btn" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${quality} Download</a>`
-      ).join("")
-    : '<p class="trakt-status">No authorized links have been added for this title yet.</p>';
-  if (downloadOptions.length) loadMonetagWatchMoreAd();
+  downloadButtons.innerHTML = downloadOptions.map(([quality, url]) =>
+    `<a class="primary-btn download-quality-btn" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${quality} Download</a>`
+  ).join("");
+  downloadArea.hidden = true;
+  watchMoreArea.hidden = downloadOptions.length === 0;
+
+  if (downloadOptions.length) {
+    loadMonetagWatchMoreAd();
+    watchMoreTimer = setTimeout(() => {
+      watchMoreTimer = null;
+      if (currentMovieId !== null || !detailsSection || detailsSection.hidden) return;
+      downloadArea.hidden = false;
+    }, 20000);
+  }
 
   activeScreenshots = [];
   hideSection(websiteSection);
