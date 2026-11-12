@@ -1700,15 +1700,36 @@ if (traktResults) {
   });
 }
 
+function traktBrowserCacheKey(query, page, feed) {
+  return "solexflix-trakt-v1:" + [traktType, feed, page, String(query || "").trim().toLowerCase()].join(":");
+}
+
+function readTraktBrowserCache(key) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || "null");
+    return saved && Array.isArray(saved.results) && Date.now() - saved.savedAt < 7 * 24 * 60 * 60 * 1000 ? saved : null;
+  } catch { return null; }
+}
+
+function writeTraktBrowserCache(key, results, hasMore) {
+  try { localStorage.setItem(key, JSON.stringify({ results, hasMore, savedAt: Date.now() })); }
+  catch (error) { console.warn("Could not save catalogue cache.", error); }
+}
+
 async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed) {
   if (!traktResults || !traktStatus) return;
   const requestId = ++traktRequestSequence;
   traktCurrentQuery = String(query || "").trim();
   activeCatalogFeed = feed === "recent" ? "recent" : "trending";
   traktCurrentPage = Math.max(1, Number(page) || 1);
+  const cacheKey = traktBrowserCacheKey(traktCurrentQuery, traktCurrentPage, activeCatalogFeed);
+  const browserCache = readTraktBrowserCache(cacheKey);
+  if (browserCache) renderTraktResults(browserCache.results, !!browserCache.hasMore);
   traktLoading = true;
   renderMoviePagination();
-  traktStatus.textContent = query ? "Searching catalogue..." : "Loading movies and web series...";
+  traktStatus.textContent = browserCache
+    ? "Showing saved catalogue while checking for updates..."
+    : (query ? "Searching catalogue..." : "Loading movies and web series...");
   try {
     const params = new URLSearchParams({ type: traktType, page: String(traktCurrentPage), feed: activeCatalogFeed });
     const endpoint = query ? (params.set("q", query), "/api/trakt/search?" + params.toString()) : "/api/trakt/discover?" + params.toString();
@@ -1717,12 +1738,18 @@ async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed
     if (requestId !== traktRequestSequence) return;
     if (!response.ok) throw new Error(data.error || "Catalogue request failed.");
     renderTraktResults(data.results || [], !!data.hasMore);
+    writeTraktBrowserCache(cacheKey, data.results || [], !!data.hasMore);
     traktStatus.textContent = query ? `Search results for “${query}” · Page ${traktCurrentPage}` : `${activeCatalogFeed === "recent" ? "Recent" : "Trending"} ${traktType === "shows" ? "web series" : "movies"} · Page ${traktCurrentPage}`;
   } catch (error) {
     if (requestId !== traktRequestSequence) return;
-    // Keep existing Trakt results and Firebase titles visible during API outages.
-    renderCurrentMoviePage();
-    traktStatus.textContent = error.message || "Unable to load catalogue.";
+    // Keep the last successful browser cache and Firebase titles visible during API outages.
+    if (browserCache) {
+      renderTraktResults(browserCache.results, !!browserCache.hasMore);
+      traktStatus.textContent = "Showing saved movies. Trakt is temporarily rate-limited; catalogue will refresh automatically on your next visit.";
+    } else {
+      renderCurrentMoviePage();
+      traktStatus.textContent = error.message || "Unable to load catalogue.";
+    }
   } finally {
     if (requestId === traktRequestSequence) {
       traktLoading = false;
