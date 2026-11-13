@@ -376,7 +376,7 @@ function renderCurrentMoviePage() {
     const key = String(movie.title || "").trim().toLowerCase() + "|" + String(movie.year || "");
     return !knownTitles.has(key);
   });
-  const localCards = localItems.map(movieCard).join("");
+  const localCards = traktCurrentPage === 1 ? localItems.map(movieCard).join("") : "";
   const cards = localCards + traktCards;
   if (cards) {
     movieGrid.innerHTML = cards;
@@ -394,7 +394,7 @@ function renderMoviePagination() {
 
   // Trakt does not provide a total page count, so show a useful numbered
   // window and keep Next available whenever the API confirms another page.
-  const visiblePageCount = traktCurrentPage + (traktHasMore ? 1 : 0);
+  const visiblePageCount = Math.max(6, traktCurrentPage + (traktHasMore ? 1 : 0));
   const pages = [];
   for (let page = 1; page <= visiblePageCount; page++) pages.push(page);
 
@@ -548,7 +548,7 @@ if (moviePagination) {
     if (!button || button.disabled) return;
     const targetPage = Number(button.dataset.page);
     if (Number.isInteger(targetPage) && targetPage >= 1 && targetPage !== traktCurrentPage) {
-      if (targetPage < traktCurrentPage || (targetPage === traktCurrentPage + 1 && traktHasMore)) {
+      if (targetPage !== traktCurrentPage) {
         loadTraktDiscovery(traktCurrentQuery, targetPage);
       }
     }
@@ -674,6 +674,12 @@ function loadMonetagWatchMoreAd() {
   slot.appendChild(monetagScript);
 }
 
+document.addEventListener("click", (event) => {
+  const qualityButton = event.target.closest(".monetag-quality-trigger");
+  if (!qualityButton) return;
+  loadMonetagWatchMoreAd();
+}, { passive: true });
+
 function loadMovieDetailsAd() {
   const slot = $("movie-details-ad");
   if (!slot || slot.dataset.loaded === "true") return;
@@ -778,27 +784,9 @@ currentMovieId = id;
   const watchMoreArea = $("watch-more-area");
   const downloadArea = $("download-area");
   const downloadButtons = $("download-buttons");
-  const downloadOptions = [
-    ["480p", movie.download480Url],
-    ["720p", movie.download720Url],
-    ["1080p", movie.download1080Url]
-  ].filter(([, url]) => isSafeHttpUrl(url));
-
   if (downloadButtons && downloadArea && watchMoreArea) {
-    downloadButtons.innerHTML = downloadOptions.map(([quality, url]) =>
-      `<a class="primary-btn download-quality-btn" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${quality} Download</a>`
-    ).join("");
-    downloadArea.hidden = true;
-    watchMoreArea.hidden = downloadOptions.length === 0;
-
-    if (downloadOptions.length > 0) {
-      loadMonetagWatchMoreAd();
-      watchMoreTimer = setTimeout(() => {
-        watchMoreTimer = null;
-        if (currentMovieId !== id || !detailsSection || detailsSection.hidden) return;
-        downloadArea.hidden = false;
-      }, 20000);
-    }
+    downloadArea.hidden = false;
+    watchMoreArea.hidden = false;
   }
 
   // Screenshots gallery.
