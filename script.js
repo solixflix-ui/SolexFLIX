@@ -1667,25 +1667,14 @@ function openTraktDetails(item) {
   const watchMoreArea = $("watch-more-area");
   const downloadArea = $("download-area");
   const downloadButtons = $("download-buttons");
-  const downloadOptions = localMatch ? [
-    ["480p", localMatch.download480Url],
-    ["720p", localMatch.download720Url],
-    ["1080p", localMatch.download1080Url]
-  ].filter(([, url]) => isSafeHttpUrl(url)) : [];
 
-  downloadButtons.innerHTML = downloadOptions.map(([quality, url]) =>
-    `<a class="primary-btn download-quality-btn" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${quality} Download</a>`
+  // Keep the five quality choices visible on every Trakt details page.
+  // These are ad-trigger buttons, not direct download links.
+  downloadButtons.innerHTML = ["480p", "720p", "1080p", "2K", "4K"].map((quality) =>
+    `<button type="button" class="primary-btn download-quality-btn monetag-quality-trigger" data-quality="${quality}">${quality}</button>`
   ).join("");
-  downloadArea.hidden = downloadOptions.length > 0;
+  downloadArea.hidden = false;
   watchMoreArea.hidden = false;
-  if (downloadOptions.length) {
-    loadMonetagWatchMoreAd();
-    watchMoreTimer = setTimeout(() => {
-      watchMoreTimer = null;
-      if (currentMovieId !== null || !detailsSection || detailsSection.hidden) return;
-      downloadArea.hidden = false;
-    }, 20000);
-  }
 
   activeScreenshots = [];
   hideSection(websiteSection);
