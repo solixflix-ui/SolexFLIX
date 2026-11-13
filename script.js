@@ -1970,4 +1970,5 @@ window.addEventListener("popstate", () => showCatalogPage(location.hash.slice(1)
 
 loadMovies();
 loadTraktDiscovery();
-loadMonetagWatchMoreAd();
+// Monetag is intentionally loaded on the first quality-button click,
+// not during page startup, so the click handler can initiate the ad request.
