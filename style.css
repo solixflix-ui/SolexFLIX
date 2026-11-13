@@ -1455,3 +1455,31 @@ body.viewer-open { overflow: hidden; }
 .link-editor-screenshot-section h3 { margin: 0 0 10px; }
 #link-editor-poster-panel[hidden],
 #link-editor-link-panel[hidden] { display: none !important; }
+
+
+/* QUALITY TABS: keep all five choices visible on mobile */
+.quality-ad-buttons {
+  display: flex !important;
+  flex-wrap: nowrap;
+  gap: 6px;
+  width: 100%;
+}
+.quality-ad-buttons .monetag-quality-trigger {
+  display: inline-flex !important;
+  flex: 1 1 0 !important;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  visibility: visible !important;
+  opacity: 1 !important;
+  padding: 10px 4px;
+  white-space: nowrap;
+  font-size: clamp(11px, 3vw, 14px);
+}
+@media (max-width: 480px) {
+  .quality-ad-buttons .monetag-quality-trigger {
+    flex: 1 1 0 !important;
+    min-width: 0;
+    padding: 10px 2px;
+  }
+}
