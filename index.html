@@ -216,17 +216,19 @@
             ></iframe>
           </div>
 
-          <!-- Adsterra 320x50 banner: Movie details -->
-          <div id="movie-details-ad" class="ad-slot ad-slot-details" aria-label="Advertisement">
-            <div class="ad-label">Advertisement</div>
-          </div>
         </div>
       </div>
       <section class="watch-more-area" id="watch-more-area" hidden aria-live="polite">
         <h2>Link</h2>
-        <div class="download-area" id="download-area" hidden>
-          <h3>Choose Download Quality</h3>
-          <div id="download-buttons" class="download-buttons"></div>
+        <div class="download-area" id="download-area">
+          <h3>Choose Quality</h3>
+          <div id="download-buttons" class="download-buttons quality-ad-buttons">
+            <button type="button" class="primary-btn download-quality-btn monetag-quality-trigger" data-quality="480p">480p</button>
+            <button type="button" class="primary-btn download-quality-btn monetag-quality-trigger" data-quality="720p">720p</button>
+            <button type="button" class="primary-btn download-quality-btn monetag-quality-trigger" data-quality="1080p">1080p</button>
+            <button type="button" class="primary-btn download-quality-btn monetag-quality-trigger" data-quality="2K">2K</button>
+            <button type="button" class="primary-btn download-quality-btn monetag-quality-trigger" data-quality="4K">4K</button>
+          </div>
         </div>
       </section>
       <section id="screenshots-section" class="screenshots-section" hidden>
@@ -240,6 +242,9 @@
         <video id="movie-video-player" controls playsinline preload="metadata"></video>
         <iframe id="movie-video-embed" title="Movie Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen hidden></iframe>
       </section>
+      <div id="movie-details-ad" class="ad-slot ad-slot-details" aria-label="Advertisement">
+        <div class="ad-label">Advertisement</div>
+      </div>
     </div>
   </section>
 
