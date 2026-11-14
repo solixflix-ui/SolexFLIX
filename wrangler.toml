@@ -14,3 +14,8 @@ TRAKT_CLIENT_ID = "aX-d-10yFOe_F4UEnxhrF6WyfEUVx1IbAxzhQ4LabrE"
 TRAKT_CLIENT_ID = "aX-d-10yFOe_F4UEnxhrF6WyfEUVx1IbAxzhQ4LabrE"
 
 # Trigger a fresh preview build for the latest testing-branch changes.
+# Refresh preview build after enabling Cloudflare Preview Builds.
+# Trigger preview for the latest catalogue error-state fix.
+# Cloudflare preview refresh for latest search error handling.
+# Refresh preview to expose the actual upstream catalogue error.
+# Trigger Cloudflare preview for latest diagnostic error display.

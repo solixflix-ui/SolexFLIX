@@ -372,7 +372,9 @@ function renderCurrentMoviePage() {
   const knownTitles = new Set((traktVisibleItems || []).map(item =>
     String(item.title || "").trim().toLowerCase() + "|" + String(item.year || "")
   ));
-  const localItems = (movies || []).filter(movie => {
+  // A search must show only the matching Trakt results. Never mix the
+  // visitor's query with unrelated locally saved homepage titles.
+  const localItems = traktCurrentQuery ? [] : (movies || []).filter(movie => {
     const key = String(movie.title || "").trim().toLowerCase() + "|" + String(movie.year || "");
     return !knownTitles.has(key);
   });
@@ -382,8 +384,12 @@ function renderCurrentMoviePage() {
     movieGrid.innerHTML = cards;
   } else if (traktLoading) {
     movieGrid.innerHTML = '<div class="trakt-status" role="status">Loading movies and web series...</div>';
+  } else if (traktLoadError) {
+    movieGrid.innerHTML = '<div class="no-results"><div class="no-results-icon">⏳</div><h3>Catalogue temporarily unavailable</h3><p class="catalogue-error-message"></p></div>';
+    const errorMessage = movieGrid.querySelector(".catalogue-error-message");
+    if (errorMessage) errorMessage.textContent = traktLoadError;
   } else {
-    movieGrid.innerHTML = '<div class="no-results"><div class="no-results-icon">🎬</div><h3>No titles found</h3><p>Try again in a moment.</p></div>';
+    movieGrid.innerHTML = '<div class="no-results"><div class="no-results-icon">🎬</div><h3>No titles found</h3><p>Try another search.</p></div>';
   }
   renderMoviePagination();
 }
@@ -1486,7 +1492,7 @@ const traktSearchForm = $("trakt-search-form");
 const traktSearchInput = $("trakt-search-input");
 let traktType = "movies";
 let traktRequestSequence = 0;
-let traktCurrentPage = 1, traktHasMore = false, traktCurrentQuery = "", traktLoading = true;
+let traktCurrentPage = 1, traktHasMore = false, traktCurrentQuery = "", traktLoading = true, traktLoadError = "";
 
 function traktSourceImageUrl(rawUrl) {
   if (!rawUrl) return "";
@@ -1858,6 +1864,29 @@ function writeTraktBrowserCache(key, results, hasMore) {
   catch (error) { console.warn("Could not save catalogue cache.", error); }
 }
 
+const TRAKT_COOLDOWN_KEY = "solexflix-trakt-cooldown-until";
+
+function getTraktCooldownUntil() {
+  try { return Math.max(0, Number(localStorage.getItem(TRAKT_COOLDOWN_KEY) || 0)); }
+  catch { return 0; }
+}
+
+function setTraktCooldown(retryAfter) {
+  let waitMs = Number(retryAfter) * 1000;
+  if (!Number.isFinite(waitMs) || waitMs <= 0) {
+    const retryDate = Date.parse(String(retryAfter || ""));
+    waitMs = Number.isFinite(retryDate) ? retryDate - Date.now() : 60000;
+  }
+  waitMs = Math.min(5 * 60 * 1000, Math.max(15000, waitMs));
+  const until = Date.now() + waitMs;
+  try { localStorage.setItem(TRAKT_COOLDOWN_KEY, String(until)); } catch {}
+  return until;
+}
+
+function responseStatusIsRateLimit(error) {
+  return Number(error?.status) === 429 || /429|rate.?limit/i.test(String(error?.message || ""));
+}
+
 async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed) {
   if (!traktResults || !traktStatus) return;
   const requestId = ++traktRequestSequence;
@@ -1866,7 +1895,26 @@ async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed
   traktCurrentPage = Math.max(1, Number(page) || 1);
   const cacheKey = traktBrowserCacheKey(traktCurrentQuery, traktCurrentPage, activeCatalogFeed);
   const browserCache = readTraktBrowserCache(cacheKey);
-  if (browserCache) renderTraktResults(browserCache.results, !!browserCache.hasMore);
+  const cooldownUntil = getTraktCooldownUntil();
+  if (browserCache) {
+    renderTraktResults(browserCache.results, !!browserCache.hasMore);
+  } else if (traktCurrentQuery) {
+    // Clear the previous trending/other-query cards before a new search.
+    traktVisibleItems = [];
+    traktHasMore = false;
+    renderCurrentMoviePage();
+  }
+  if (cooldownUntil > Date.now()) {
+    traktLoading = false;
+    traktLoadError = browserCache ? "" : "Trakt has temporarily limited requests. Wait a little, then try again.";
+    traktStatus.textContent = browserCache
+      ? "Showing saved results. Search requests are paused briefly to respect Trakt's rate limit."
+      : "Search is temporarily paused because Trakt rate-limited requests. Please try again shortly.";
+    if (!browserCache) renderCurrentMoviePage();
+    renderMoviePagination();
+    return;
+  }
+  traktLoadError = "";
   traktLoading = true;
   renderMoviePagination();
   traktStatus.textContent = browserCache
@@ -1878,19 +1926,39 @@ async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed
     const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
     const data = await response.json();
     if (requestId !== traktRequestSequence) return;
-    if (!response.ok) throw new Error(data.error || "Catalogue request failed.");
+    if (!response.ok) {
+      const error = new Error(data.error || "Catalogue request failed.");
+      error.status = response.status;
+      error.retryAfter = data.retryAfter || response.headers.get("Retry-After") || "";
+      throw error;
+    }
+    traktLoadError = "";
+    try { localStorage.removeItem(TRAKT_COOLDOWN_KEY); } catch {}
     renderTraktResults(data.results || [], !!data.hasMore);
     writeTraktBrowserCache(cacheKey, data.results || [], !!data.hasMore);
     traktStatus.textContent = query ? `Search results for “${query}” · Page ${traktCurrentPage}` : `${activeCatalogFeed === "recent" ? "Recent" : "Trending"} ${traktType === "shows" ? "web series" : "movies"} · Page ${traktCurrentPage}`;
   } catch (error) {
     if (requestId !== traktRequestSequence) return;
-    // Keep the last successful browser cache and Firebase titles visible during API outages.
+    // Keep only a matching cached query on failure; never leave unrelated cards
+    // from the previous page or mix in Firebase homepage titles.
+    const isRateLimited = responseStatusIsRateLimit(error);
+    if (isRateLimited) setTraktCooldown(error.retryAfter);
     if (browserCache) {
       renderTraktResults(browserCache.results, !!browserCache.hasMore);
-      traktStatus.textContent = "Showing saved movies. Trakt is temporarily rate-limited; catalogue will refresh automatically on your next visit.";
+      traktLoadError = "";
+      traktStatus.textContent = isRateLimited
+        ? "Showing saved results. Trakt is rate-limited; new requests are paused briefly."
+        : "Showing saved results because the catalogue could not refresh.";
     } else {
+      if (traktCurrentQuery) {
+        traktVisibleItems = [];
+        traktHasMore = false;
+      }
+      traktLoadError = isRateLimited
+        ? "Trakt has temporarily limited requests. Your search was not completed; wait a little and try again."
+        : (error.message || "Unable to load catalogue.");
       renderCurrentMoviePage();
-      traktStatus.textContent = error.message || "Unable to load catalogue.";
+      traktStatus.textContent = traktLoadError;
     }
   } finally {
     if (requestId === traktRequestSequence) {
