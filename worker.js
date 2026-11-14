@@ -213,8 +213,7 @@ export default {
       const cachedResponse = await cache.match(cacheKey);
       if (cachedResponse) return cachedResponse;
       try {
-        const page = Math.min(100, Math.max(1, Number(url.searchParams.get("page") || 1) || 1));
-        const limit = url.pathname.endsWith("/search") ? 20 : 12;
+        const limit = isSearch ? 20 : 12;
         const pagination = new URLSearchParams({ page: String(page), limit: String(limit), extended: "full" });
         let path;
         if (url.pathname.endsWith("/search")) {
