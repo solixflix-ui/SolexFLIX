@@ -893,7 +893,7 @@ document.addEventListener("keydown", (event) => {
    GLOBAL QUALITY LINK
    One user-supplied destination for all titles
 ========================================= */
-const GLOBAL_QUALITY_LINK = "https://shrinkme.click/Dlbt6qnA";
+const GLOBAL_QUALITY_LINK = "https://shrinkme.click/5xhLKm";
 
 document.addEventListener("click", (event) => {
   const qualityButton = event.target.closest(".download-quality-btn");
