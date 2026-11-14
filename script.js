@@ -372,7 +372,9 @@ function renderCurrentMoviePage() {
   const knownTitles = new Set((traktVisibleItems || []).map(item =>
     String(item.title || "").trim().toLowerCase() + "|" + String(item.year || "")
   ));
-  const localItems = (movies || []).filter(movie => {
+  // A search must show only the matching Trakt results. Never mix the
+  // visitor's query with unrelated locally saved homepage titles.
+  const localItems = traktCurrentQuery ? [] : (movies || []).filter(movie => {
     const key = String(movie.title || "").trim().toLowerCase() + "|" + String(movie.year || "");
     return !knownTitles.has(key);
   });
@@ -1858,6 +1860,10 @@ function writeTraktBrowserCache(key, results, hasMore) {
   catch (error) { console.warn("Could not save catalogue cache.", error); }
 }
 
+function responseStatusIsRateLimit(error) {
+  return Number(error?.status) === 429 || /429|rate.?limit/i.test(String(error?.message || ""));
+}
+
 async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed) {
   if (!traktResults || !traktStatus) return;
   const requestId = ++traktRequestSequence;
@@ -1866,7 +1872,14 @@ async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed
   traktCurrentPage = Math.max(1, Number(page) || 1);
   const cacheKey = traktBrowserCacheKey(traktCurrentQuery, traktCurrentPage, activeCatalogFeed);
   const browserCache = readTraktBrowserCache(cacheKey);
-  if (browserCache) renderTraktResults(browserCache.results, !!browserCache.hasMore);
+  if (browserCache) {
+    renderTraktResults(browserCache.results, !!browserCache.hasMore);
+  } else if (traktCurrentQuery) {
+    // Clear the previous trending/other-query cards before a new search.
+    traktVisibleItems = [];
+    traktHasMore = false;
+    renderCurrentMoviePage();
+  }
   traktLoading = true;
   renderMoviePagination();
   traktStatus.textContent = browserCache
@@ -1878,19 +1891,32 @@ async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed
     const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
     const data = await response.json();
     if (requestId !== traktRequestSequence) return;
-    if (!response.ok) throw new Error(data.error || "Catalogue request failed.");
+    if (!response.ok) {
+      const error = new Error(data.error || "Catalogue request failed.");
+      error.status = response.status;
+      error.retryAfter = data.retryAfter || response.headers.get("Retry-After") || "";
+      throw error;
+    }
     renderTraktResults(data.results || [], !!data.hasMore);
     writeTraktBrowserCache(cacheKey, data.results || [], !!data.hasMore);
     traktStatus.textContent = query ? `Search results for “${query}” · Page ${traktCurrentPage}` : `${activeCatalogFeed === "recent" ? "Recent" : "Trending"} ${traktType === "shows" ? "web series" : "movies"} · Page ${traktCurrentPage}`;
   } catch (error) {
     if (requestId !== traktRequestSequence) return;
-    // Keep the last successful browser cache and Firebase titles visible during API outages.
+    // Keep only a matching cached query on failure; never leave unrelated cards
+    // from the previous page or mix in Firebase homepage titles.
     if (browserCache) {
       renderTraktResults(browserCache.results, !!browserCache.hasMore);
-      traktStatus.textContent = "Showing saved movies. Trakt is temporarily rate-limited; catalogue will refresh automatically on your next visit.";
+      traktStatus.textContent = "Showing saved results. Trakt is temporarily rate-limited; please wait before trying again.";
     } else {
+      if (traktCurrentQuery) {
+        traktVisibleItems = [];
+        traktHasMore = false;
+      }
       renderCurrentMoviePage();
-      traktStatus.textContent = error.message || "Unable to load catalogue.";
+      const isRateLimited = responseStatusIsRateLimit(error);
+      traktStatus.textContent = isRateLimited
+        ? "Trakt is temporarily busy (rate limit). Please wait a little and search again."
+        : (error.message || "Unable to load catalogue.");
     }
   } finally {
     if (requestId === traktRequestSequence) {
