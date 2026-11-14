@@ -1880,7 +1880,8 @@ function setTraktCooldown(retryAfter) {
     const retryDate = Date.parse(String(retryAfter || ""));
     waitMs = Number.isFinite(retryDate) ? retryDate - Date.now() : 60000;
   }
-  waitMs = Math.min(5 * 60 * 1000, Math.max(15000, waitMs));
+  // Never retry earlier than Trakt's Retry-After value (which may exceed 5 minutes).
+  waitMs = Math.min(24 * 60 * 60 * 1000, Math.max(15000, waitMs));
   const until = Date.now() + waitMs;
   try { localStorage.setItem(TRAKT_COOLDOWN_KEY, String(until)); } catch {}
   return until;
