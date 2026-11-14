@@ -497,7 +497,8 @@ function runUnifiedSearch(rawQuery) {
   setSearchSectionsHidden(query.length > 0);
   if (unifiedSearchTimer) clearTimeout(unifiedSearchTimer);
   if (query.length >= 2) {
-    unifiedSearchTimer = setTimeout(() => loadTraktDiscovery(query), 350);
+    // Wait until typing settles so one search phrase creates one API request.
+    unifiedSearchTimer = setTimeout(() => loadTraktDiscovery(query), 850);
   } else {
     traktRequestSequence++;
     traktVisibleItems = [];
@@ -1849,7 +1850,9 @@ if (traktResults) {
 }
 
 function traktBrowserCacheKey(query, page, feed) {
-  return "solexflix-trakt-v1:" + [traktType, feed, page, String(query || "").trim().toLowerCase()].join(":");
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  // Search results do not depend on the Trending/Recent tab; share one cache.
+  return "solexflix-trakt-v2:" + [traktType, normalizedQuery ? "search" : feed, page, normalizedQuery].join(":");
 }
 
 function readTraktBrowserCache(key) {
@@ -1877,7 +1880,8 @@ function setTraktCooldown(retryAfter) {
     const retryDate = Date.parse(String(retryAfter || ""));
     waitMs = Number.isFinite(retryDate) ? retryDate - Date.now() : 60000;
   }
-  waitMs = Math.min(5 * 60 * 1000, Math.max(15000, waitMs));
+  // Never retry earlier than Trakt's Retry-After value (which may exceed 5 minutes).
+  waitMs = Math.min(24 * 60 * 60 * 1000, Math.max(15000, waitMs));
   const until = Date.now() + waitMs;
   try { localStorage.setItem(TRAKT_COOLDOWN_KEY, String(until)); } catch {}
   return until;
@@ -1921,8 +1925,11 @@ async function loadTraktDiscovery(query = "", page = 1, feed = activeCatalogFeed
     ? "Showing saved catalogue while checking for updates..."
     : (query ? "Searching catalogue..." : "Loading movies and web series...");
   try {
-    const params = new URLSearchParams({ type: traktType, page: String(traktCurrentPage), feed: activeCatalogFeed });
-    const endpoint = query ? (params.set("q", query), "/api/trakt/search?" + params.toString()) : "/api/trakt/discover?" + params.toString();
+    const params = new URLSearchParams({ type: traktType, page: String(traktCurrentPage) });
+    // Feed is irrelevant to search; excluding it prevents duplicate cache buckets.
+    const endpoint = query
+      ? (params.set("q", String(query).trim().toLowerCase()), "/api/trakt/search?" + params.toString())
+      : (params.set("feed", activeCatalogFeed), "/api/trakt/discover?" + params.toString());
     const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
     const data = await response.json();
     if (requestId !== traktRequestSequence) return;

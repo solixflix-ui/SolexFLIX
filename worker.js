@@ -25,6 +25,8 @@ function escapeHtml(input) {
 
 let cachedAccessToken = "";
 let tokenExpiresAt = 0;
+// Coalesce identical upstream calls that arrive in the same Worker isolate.
+const traktRequestInFlight = new Map();
 
 function base64url(input) {
   const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
@@ -123,23 +125,32 @@ async function getMovies(env) {
 
 async function traktJson(path, env) {
   if (!env.TRAKT_CLIENT_ID) throw new Error("Trakt Client ID is not configured in the Worker.");
-  const response = await fetch("https://api.trakt.tv" + path, {
-    headers: {
-      "trakt-api-version": "2",
-      "trakt-api-key": env.TRAKT_CLIENT_ID,
-      "Content-Type": "application/json",
-      "User-Agent": "SolexFLIX/1.0"
+  if (traktRequestInFlight.has(path)) return traktRequestInFlight.get(path);
+  const requestPromise = (async () => {
+    const response = await fetch("https://api.trakt.tv" + path, {
+      headers: {
+        "trakt-api-version": "2",
+        "trakt-api-key": env.TRAKT_CLIENT_ID,
+        "Content-Type": "application/json",
+        "User-Agent": "SolexFLIX/1.0"
+      }
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const details = body.error_description || body.message || body.error || response.statusText || "Unknown response";
+      const error = new Error("Trakt API HTTP " + response.status + ": " + String(details).slice(0, 220));
+      error.status = response.status;
+      error.retryAfter = response.headers.get("Retry-After") || "";
+      throw error;
     }
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const details = body.error_description || body.message || body.error || response.statusText || "Unknown response";
-    const error = new Error("Trakt API HTTP " + response.status + ": " + String(details).slice(0, 220));
-    error.status = response.status;
-    error.retryAfter = response.headers.get("Retry-After") || "";
-    throw error;
+    return body;
+  })();
+  traktRequestInFlight.set(path, requestPromise);
+  try {
+    return await requestPromise;
+  } finally {
+    if (traktRequestInFlight.get(path) === requestPromise) traktRequestInFlight.delete(path);
   }
-  return body;
 }
 async function normalizeTraktItems(items, type, env) {
   const imageValue = (value) => {
@@ -187,15 +198,22 @@ export default {
 
     if (url.pathname === "/api/trakt/discover" || url.pathname === "/api/trakt/search") {
       const cache = caches.default;
-      const cacheKey = new Request(url.toString(), { method: "GET" });
+      const isSearch = url.pathname.endsWith("/search");
+      const type = url.searchParams.get("type") === "shows" ? "shows" : "movies";
+      const query = String(url.searchParams.get("q") || "").trim().toLowerCase().slice(0, 100);
+      const page = Math.min(100, Math.max(1, Number(url.searchParams.get("page") || 1) || 1));
+      const feed = url.searchParams.get("feed") === "recent" ? "recent" : "trending";
+      // Canonical cache keys make equivalent searches share one cached response.
+      const cacheUrl = new URL(url.origin + url.pathname);
+      cacheUrl.searchParams.set("type", type);
+      cacheUrl.searchParams.set("page", String(page));
+      if (isSearch) cacheUrl.searchParams.set("q", query);
+      else cacheUrl.searchParams.set("feed", feed);
+      const cacheKey = new Request(cacheUrl.toString(), { method: "GET" });
       const cachedResponse = await cache.match(cacheKey);
       if (cachedResponse) return cachedResponse;
       try {
-        const type = url.searchParams.get("type") === "shows" ? "shows" : "movies";
-        const query = String(url.searchParams.get("q") || "").trim().slice(0, 100);
-        const feed = url.searchParams.get("feed") === "recent" ? "recent" : "trending";
-        const page = Math.min(100, Math.max(1, Number(url.searchParams.get("page") || 1) || 1));
-        const limit = url.pathname.endsWith("/search") ? 20 : 12;
+        const limit = isSearch ? 20 : 12;
         const pagination = new URLSearchParams({ page: String(page), limit: String(limit), extended: "full" });
         let path;
         if (url.pathname.endsWith("/search")) {
