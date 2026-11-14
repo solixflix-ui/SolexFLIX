@@ -890,6 +890,20 @@ document.addEventListener("keydown", (event) => {
 });
 
 /* =========================================
+   GLOBAL QUALITY LINK
+   One user-supplied destination for all titles
+========================================= */
+const GLOBAL_QUALITY_LINK = "https://shrinkme.click/Dlbt6qnA";
+
+document.addEventListener("click", (event) => {
+  const qualityButton = event.target.closest(".download-quality-btn");
+  if (!qualityButton || !GLOBAL_QUALITY_LINK) return;
+  event.preventDefault();
+  window.location.assign(GLOBAL_QUALITY_LINK);
+});
+
+
+/* =========================================
    13. MOVIE CARD CLICK
 ========================================= */
 
