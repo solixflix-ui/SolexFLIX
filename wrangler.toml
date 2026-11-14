@@ -18,3 +18,4 @@ TRAKT_CLIENT_ID = "aX-d-10yFOe_F4UEnxhrF6WyfEUVx1IbAxzhQ4LabrE"
 # Trigger preview for the latest catalogue error-state fix.
 # Cloudflare preview refresh for latest search error handling.
 # Refresh preview to expose the actual upstream catalogue error.
+# Trigger Cloudflare preview for latest diagnostic error display.
