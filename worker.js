@@ -134,7 +134,10 @@ async function traktJson(path, env) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     const details = body.error_description || body.message || body.error || response.statusText || "Unknown response";
-    throw new Error("Trakt API HTTP " + response.status + ": " + String(details).slice(0, 220));
+    const error = new Error("Trakt API HTTP " + response.status + ": " + String(details).slice(0, 220));
+    error.status = response.status;
+    error.retryAfter = response.headers.get("Retry-After") || "";
+    throw error;
   }
   return body;
 }
@@ -148,19 +151,8 @@ async function normalizeTraktItems(items, type, env) {
     const isShow = !!entry.show || type === "shows";
     let media = entry.movie || entry.show || entry;
     let images = media.images || {};
-    // Trending/search list payloads can contain stale embedded media without artwork.
-    // Hydrate only missing-poster items from their Trakt summary endpoint.
-    if (!imageValue(images.poster) && media.ids?.trakt) {
-      try {
-        const fresh = await traktJson("/" + (isShow ? "shows/" : "movies/") + encodeURIComponent(media.ids.trakt) + "?extended=full", env);
-        if (fresh && fresh.title) {
-          media = fresh;
-          images = media.images || {};
-        }
-      } catch (error) {
-        // Keep the available metadata if artwork hydration is temporarily unavailable.
-      }
-    }
+    // Do not make one extra API request per result for missing artwork.
+    // This keeps search pages within Trakt's rate limits; missing posters use the fallback UI.
     return {
       type: isShow ? "show" : "movie",
       title: media.title || "",
@@ -217,7 +209,18 @@ export default {
         await cache.put(cacheKey, response.clone());
         return response;
       } catch (error) {
-        return jsonResponse({ error: error.message || "Trakt service unavailable." }, 502, 0);
+        const rateLimited = Number(error.status) === 429;
+        const retryAfter = String(error.retryAfter || "");
+        const response = jsonResponse({
+          error: rateLimited
+            ? "Trakt is temporarily rate-limited. Please wait before searching again."
+            : (error.message || "Trakt service unavailable."),
+          rateLimited,
+          retryAfter
+        }, rateLimited ? 429 : 502, 0);
+        if (rateLimited && retryAfter) response.headers.set("Retry-After", retryAfter);
+        response.headers.set("Cache-Control", "no-store");
+        return response;
       }
     }
     if (url.pathname === "/api/trakt/image") {
