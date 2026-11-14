@@ -385,7 +385,7 @@ function renderCurrentMoviePage() {
   } else if (traktLoading) {
     movieGrid.innerHTML = '<div class="trakt-status" role="status">Loading movies and web series...</div>';
   } else if (traktLoadError) {
-    movieGrid.innerHTML = '<div class="no-results"><div class="no-results-icon">⏳</div><h3>Catalogue temporarily unavailable</h3><p>' + escapeHtml(traktLoadError) + '</p></div>';
+    movieGrid.innerHTML = '<div class="no-results"><div class="no-results-icon">⏳</div><h3>Catalogue temporarily unavailable</h3><p>Trakt could not complete this request. Please wait a little and try again.</p></div>';
   } else {
     movieGrid.innerHTML = '<div class="no-results"><div class="no-results-icon">🎬</div><h3>No titles found</h3><p>Try another search.</p></div>';
   }
